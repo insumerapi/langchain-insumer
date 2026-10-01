@@ -346,36 +346,53 @@ class InsumerAPIWrapper(BaseModel):
     ) -> dict:
         """Generate a structured wallet trust fact profile.
 
-        Checks 45 base conditions across 26 chains in 5 dimensions: stablecoins
-        (USDC + USDT, 27 checks), governance tokens (4), NFTs (3), staking
-        positions (stETH, rETH, cbETH), and institutional stablecoins (8: EURCV
-        and USDCV on Ethereum and Solana, EURCV on XRPL, USDC and BENJI on
-        Stellar, USDC on Sui). Up to 50 checks across 28 chains in 9 dimensions
-        with optional Solana, XRPL, Bitcoin, Tron, Stellar, and Sui wallets. A
+        Checks 145 base conditions across 27 chains in 9 dimensions: stablecoins
+        (52: USDC, USDT, OUSD, PYUSD, USDG, USD1, RLUSD, USDS, DAI, EURC on 23
+        EVM chains), governance tokens (8: UNI, AAVE, ARB, OP, ENS, LDO, SKY,
+        COMP), NFTs (3), staking positions (5: stETH, rETH, cbETH, wstETH,
+        weETH), institutional stablecoins (8: EURCV and USDCV on Ethereum and
+        Solana, EURCV on XRPL, USDC and BENJI on Stellar, USDC on Sui),
+        tokenized treasuries (16: BUIDL, USYC, OUSG, USTB, USDY), stablecoin
+        deposits (39: Aave v3 aUSDC/aUSDT, sUSDS, sDAI, listed Morpho USDC
+        vaults), wrapped bitcoin (12: cbBTC, WBTC, tBTC) and names (2: ENS
+        .eth, Basenames). Up to 166 checks across 29 chains in 13 dimensions
+        with the optional Solana (14), XRPL (3), Bitcoin (1) and Tron (3)
+        wallets; Stellar and Sui wallets add no dimension but let their rows
+        inside the base dimensions evaluate. Every check is a presence check. A
         check whose chain wallet was not supplied stays in the signed profile
         with ``evaluated: false`` and ``reason: "wallet_not_provided"``, counted
-        in ``notEvaluatedCount`` rather than passed or failed. Returns
-        per-dimension pass/fail counts and an overall summary.
-        No score — just cryptographically verifiable evidence. Costs 3 credits
+        in ``notEvaluatedCount`` rather than passed or failed. The signed
+        ``conditionSetVersion`` (currently ``"2026-10"``) names the check list
+        that was run; log it, never reject on it. Returns per-dimension
+        pass/fail counts and an overall summary.
+        No score, just cryptographically verifiable evidence. Costs 3 credits
         (standard) or 6 credits (with proof="merkle").
 
         Args:
             wallet: EVM wallet address (0x...) to profile.
-            solana_wallet: Solana wallet address (base58). Adds USDC on Solana
-                and institutional EURCV/USDCV on Solana checks.
-            xrpl_wallet: XRPL wallet address (r-address). Adds RLUSD, USDC, and
-                institutional EURCV on XRPL checks.
-            bitcoin_wallet: Bitcoin address. Adds Bitcoin Holdings dimension
-                (native BTC balance).
-            tron_wallet: Tron wallet address (T-prefixed). Adds USDT-TRC20 on
-                Tron check.
-            stellar_wallet: Stellar wallet address (G-prefixed). Adds
-                institutional USDC and BENJI on Stellar checks (classic trustlines).
-            sui_wallet: Sui wallet address (0x + 64 hex). Adds institutional
-                USDC on Sui check.
-            proof: Set to "merkle" for EIP-1186 Merkle storage proofs on
-                stablecoin and governance checks, on 27 of the 31 EVM chains
-                (not ZKsync Era, Sei, Viction or XDC Network). Costs 6 credits.
+            solana_wallet: Solana wallet address (base58). Adds the 14-check
+                solana dimension (USDC, EURC, OUSD, PYUSD, USD1, USDG, USDS,
+                BUIDL, USDY, WBTC, cbBTC, tBTC, JitoSOL, mSOL) and lets the
+                institutional EURCV/USDCV on Solana rows evaluate.
+            xrpl_wallet: XRPL wallet address (r-address). Adds the xrpl
+                dimension (RLUSD, USDC, OUSG) and lets the institutional EURCV
+                on XRPL row evaluate.
+            bitcoin_wallet: Bitcoin address. Adds the bitcoin dimension (one
+                native BTC presence check).
+            tron_wallet: Tron wallet address (T-prefixed). Adds the tron
+                dimension (USDT, USD1, WBTC on Tron).
+            stellar_wallet: Stellar wallet address (G-prefixed). Adds no
+                dimension; lets the institutional USDC and BENJI on Stellar rows
+                evaluate (classic trustlines).
+            sui_wallet: Sui wallet address (0x + 64 hex). Adds no dimension;
+                lets the institutional USDC on Sui and tokenized-treasury USDY
+                on Sui rows evaluate.
+            proof: Set to "merkle" for EIP-1186 Merkle storage proofs on EVM
+                token checks, on 27 of the 31 EVM chains (not ZKsync Era, Sei,
+                Viction or XDC Network). Rows whose balance is computed rather
+                than stored (Aave aTokens, BUIDL), NFT rows and non-EVM rows are
+                declined with a reason; the premium is refunded whenever no
+                proof is delivered. Costs 6 credits.
 
         Returns:
             API response with trust profile, ECDSA signature (``sig``),

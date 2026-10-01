@@ -18,35 +18,38 @@ class WalletTrustSchema(BaseModel):
     )
     solana_wallet: Optional[str] = Field(
         default=None,
-        description="Solana wallet address (base58). Adds USDC on Solana and institutional EURCV/USDCV on Solana checks.",
+        description="Solana wallet address (base58). Adds the 14-check solana dimension (USDC, EURC, OUSD, PYUSD, USD1, USDG, USDS, BUIDL, USDY, WBTC, cbBTC, tBTC, JitoSOL, mSOL) and lets the institutional EURCV/USDCV on Solana rows evaluate.",
     )
     xrpl_wallet: Optional[str] = Field(
         default=None,
-        description="XRPL wallet address (r-address). Adds RLUSD, USDC, and institutional EURCV on XRPL checks.",
+        description="XRPL wallet address (r-address). Adds the xrpl dimension (RLUSD, USDC, OUSG) and lets the institutional EURCV on XRPL row evaluate.",
     )
     bitcoin_wallet: Optional[str] = Field(
         default=None,
-        description="Bitcoin address. Adds Bitcoin Holdings dimension (native BTC balance).",
+        description="Bitcoin address. Adds the bitcoin dimension (one native BTC presence check).",
     )
     tron_wallet: Optional[str] = Field(
         default=None,
-        description="Tron wallet address (T-prefixed). Adds USDT-TRC20 on Tron check.",
+        description="Tron wallet address (T-prefixed). Adds the tron dimension (USDT, USD1, WBTC on Tron).",
     )
     stellar_wallet: Optional[str] = Field(
         default=None,
-        description="Stellar wallet address (G-prefixed). Adds institutional USDC and BENJI on Stellar checks (classic trustlines).",
+        description="Stellar wallet address (G-prefixed). Adds no dimension; lets the institutional USDC and BENJI on Stellar rows evaluate (classic trustlines).",
     )
     sui_wallet: Optional[str] = Field(
         default=None,
-        description="Sui wallet address (0x + 64 hex). Adds institutional USDC on Sui check.",
+        description="Sui wallet address (0x + 64 hex). Adds no dimension; lets the institutional USDC on Sui and tokenized-treasury USDY on Sui rows evaluate.",
     )
     proof: Optional[str] = Field(
         default=None,
         description=(
             'Set to "merkle" to include EIP-1186 Merkle storage proofs. '
-            "Costs 6 credits instead of 3. Proofs available for stablecoin "
-            "and governance checks on 27 of the 31 EVM chains "
-            "(not ZKsync Era, Sei, Viction or XDC Network)."
+            "Costs 6 credits instead of 3. Proofs cover EVM token checks on "
+            "27 of the 31 EVM chains (not ZKsync Era, Sei, Viction or XDC "
+            "Network); rows whose balance is computed rather than stored "
+            "(Aave aTokens, BUIDL), NFT rows and non-EVM rows are declined "
+            "with a reason, and the premium is refunded whenever no proof is "
+            "delivered."
         ),
     )
 
@@ -54,29 +57,41 @@ class WalletTrustSchema(BaseModel):
 class InsumerWalletTrustTool(BaseTool):
     """Generate a structured, ECDSA-signed wallet trust fact profile.
 
-    Checks 45 curated conditions across 26 chains in 5 dimensions: stablecoins
-    (USDC + USDT, 27 checks), governance tokens (4), NFTs (3), staking positions
-    (stETH, rETH, cbETH), and institutional stablecoins (8, across Ethereum,
-    Solana, XRPL, Stellar, and Sui). Up to 50 checks across 28 chains in 9
-    dimensions with optional Solana, XRPL, Bitcoin, Tron, Stellar, and Sui
-    wallets. Checks whose chain wallet was not supplied carry evaluated: false
-    and are counted in notEvaluatedCount, never as passed or failed.
+    Checks 145 curated conditions across 27 chains in 9 dimensions: stablecoins
+    (USDC, USDT, OUSD, PYUSD, USDG, USD1, RLUSD, USDS, DAI, EURC; 52 checks on
+    23 EVM chains), governance tokens (8), NFTs (3), staking positions (5),
+    institutional stablecoins (8, across Ethereum, Solana, XRPL, Stellar and
+    Sui), tokenized treasuries (16: BUIDL, USYC, OUSG, USTB, USDY), stablecoin
+    deposits (39: Aave v3 aUSDC/aUSDT, sUSDS, sDAI, listed Morpho USDC vaults),
+    wrapped bitcoin (12: cbBTC, WBTC, tBTC) and names (2: ENS .eth, Basenames).
+    Up to 166 checks across 29 chains in 13 dimensions with the optional
+    Solana, XRPL, Bitcoin and Tron wallets; Stellar and Sui wallets add no
+    dimension but let their rows inside the base dimensions evaluate. Every
+    check is a presence check. Checks whose chain wallet was not supplied carry
+    evaluated: false and are counted in notEvaluatedCount, never as passed or
+    failed. The signed conditionSetVersion (currently "2026-10") names the
+    check list that was run; log it, never reject on it.
     Returns per-dimension pass/fail counts and overall summary. No score, no
-    opinion — just cryptographically verifiable evidence. Costs 3 credits
+    opinion, just cryptographically verifiable evidence. Costs 3 credits
     (standard) or 6 credits (with proof="merkle").
     """
 
     name: str = "insumer_wallet_trust"
     description: str = (
-        "Generate a wallet trust fact profile. 45 base checks across 26 chains "
-        "in 5 dimensions: stablecoins (USDC + USDT), governance tokens (UNI, AAVE, "
-        "ARB, OP), NFTs (BAYC, Pudgy Penguins, Wrapped CryptoPunks), staking "
-        "positions (stETH, rETH, cbETH), and institutional stablecoins. Up to "
-        "50 checks across 28 chains in 9 dimensions with optional Solana, XRPL, "
-        "Bitcoin, Tron, Stellar, and Sui wallets; a check whose chain wallet was "
-        "not supplied is reported as evaluated: false, not as a failure. "
-        "Returns per-dimension pass/fail counts and ECDSA-signed evidence — no "
-        "score, just facts. Use this when you need a comprehensive wallet "
+        "Generate a wallet trust fact profile. 145 base checks across 27 chains "
+        "in 9 dimensions: stablecoins (USDC, USDT, OUSD, PYUSD, USDG, USD1, "
+        "RLUSD, USDS, DAI, EURC), governance tokens (UNI, AAVE, ARB, OP, ENS, "
+        "LDO, SKY, COMP), NFTs (BAYC, Pudgy Penguins, Wrapped CryptoPunks), "
+        "staking positions (stETH, rETH, cbETH, wstETH, weETH), institutional "
+        "stablecoins, tokenized treasuries (BUIDL, USYC, OUSG, USTB, USDY), "
+        "stablecoin deposits (Aave v3, sUSDS, sDAI, Morpho USDC vaults), wrapped "
+        "bitcoin (cbBTC, WBTC, tBTC) and names (ENS, Basenames). Up to 166 "
+        "checks across 29 chains in 13 dimensions with optional Solana, XRPL, "
+        "Bitcoin and Tron wallets; Stellar and Sui wallets switch on rows inside "
+        "the base dimensions. Every check is a presence check; a check whose "
+        "chain wallet was not supplied is reported as evaluated: false, not as "
+        "a failure. Returns per-dimension pass/fail counts and ECDSA-signed "
+        "evidence, no score, just facts. Use this when you need a comprehensive wallet "
         'assessment without specifying individual conditions. Costs 3 credits '
         '(standard) or 6 credits (proof="merkle").'
     )
