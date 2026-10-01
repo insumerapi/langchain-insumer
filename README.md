@@ -157,7 +157,7 @@ result = api.attest(
     ],
 )
 
-# Wallet trust profile with XRPL dimensions
+# Wallet trust profile with the XRPL dimension
 result = api.wallet_trust(
     wallet="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
     xrpl_wallet="rG1QQv2nh2gr7RCZ1P8YYcBUKCCN633jCn",
