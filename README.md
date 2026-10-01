@@ -168,7 +168,26 @@ XRPL attestation results include `ledgerIndex` and `ledgerHash` (validated ledge
 
 ## Verify the Response
 
-The attestation is ECDSA-signed. Your application should verify it before trusting it. Use [insumer-verify](https://www.npmjs.com/package/insumer-verify) in your Node.js backend or browser:
+The attestation is ECDSA-signed. Your application should verify it before trusting it. Use [insumer-verify](https://pypi.org/project/insumer-verify/), which runs every check the specification defines and passes the same 27 published test vectors as the npm package:
+
+```bash
+pip install "insumer-verify[pq]"
+```
+
+```python
+from insumer_verify import verify_attestation
+
+# response = the full API envelope {ok, data: {attestation, sig, kid, pqSig, pqKid}, meta}
+# Do NOT pass response["data"]; the function expects the outer envelope
+result = verify_attestation(response, jwks_url="https://insumermodel.com/.well-known/jwks.json", max_age=120)
+
+if result["valid"] and response["data"]["attestation"]["pass"]:
+    grant_access()
+else:
+    print("Verification failed:", result["checks"])
+```
+
+In a Node.js backend or browser, the [npm package](https://www.npmjs.com/package/insumer-verify) of the same name does the same:
 
 ```bash
 npm install insumer-verify
