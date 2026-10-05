@@ -453,7 +453,9 @@ for r in result["data"]["attestation"]["results"]:
 
 ## Handling `rpc_failure` Errors
 
-If the API cannot read one or more blockchain data sources after retries, the endpoints that produce signed results (`attest`, `wallet_trust`, `batch_wallet_trust`) answer with HTTP 503, `ok: false` and error code `rpc_failure`. No signature, no JWT, no credits charged. This is a retryable error: retry after 2-5 seconds.
+If the API cannot read one or more blockchain data sources after retries, it answers with HTTP 503, `ok: false` and error code `rpc_failure`. Six wrapper methods can raise it: `attest`, `wallet_trust`, `check_discount`, `verify`, `acp_discount` and `ucp_discount`. No signature, no JWT, no discount code, no credits charged. This is a retryable error: retry after 2-5 seconds.
+
+`batch_wallet_trust` behaves differently. One wallet that could not be read does not fail the batch: the call returns 200, and that wallet's entry in `results` is an `error` object (its `message` starts with `rpc_failure:`) in place of a profile. Retry that wallet alone.
 
 **Important:** `rpc_failure` is NOT a verification failure. Do not treat it as `pass: false`. It means the data source was temporarily unavailable and the API refused to sign an unverified result.
 

@@ -17,17 +17,27 @@ class ConfigureTokensSchema(BaseModel):
     own_token: Optional[str] = Field(
         default=None,
         description=(
-            "JSON object for the merchant's own token, or null to remove. "
+            "JSON object for the merchant's own token, or null to switch it off. "
             'Format: {"symbol": "TOKEN", "chainId": 1, "contractAddress": "0x...", '
             '"decimals": 18, "tiers": [{"name": "Gold", "threshold": 1000, "discount": 10}]}. '
+            "decimals is required. Each tier discount is a whole number from 1 to 50 "
+            "(no decimals; 7.5 is refused with a 400). "
+            'For an XRPL trust line token (chainId "xrpl", contractAddress is the issuer '
+            'r-address) add "currency", e.g. "RLUSD". Currency codes are case-sensitive: '
+            "send the code exactly as the issuer created it. "
+            '"enabled" is optional; if sent it must be JSON true or false, never a string. '
+            "Leave this argument out to keep the stored own token unchanged. "
             "Pass as a JSON string."
         ),
     )
     partner_tokens: Optional[str] = Field(
         default=None,
         description=(
-            "JSON array of partner token configurations. Same format as own_token "
-            "but as an array. Max 8 tokens total (own + partners). "
+            "JSON array of partner token configurations. Same format and rules as "
+            "own_token (whole-number discounts from 1 to 50, XRPL currency exactly as "
+            "issued), but as an array. Max 8 tokens total (own + partners). The array "
+            "replaces the stored partner list, so include every partner token to keep; "
+            "leave this argument out to keep the stored list unchanged. "
             "Pass as a JSON string."
         ),
     )
@@ -46,7 +56,10 @@ class InsumerConfigureTokensTool(BaseTool):
         "and/or partner tokens with balance thresholds and discount "
         "percentages. Max 8 tokens total. Owner only. Token configs are "
         "JSON: {symbol, chainId, contractAddress, decimals, tiers: "
-        "[{name, threshold, discount}]}."
+        "[{name, threshold, discount}]}. Discounts are whole numbers from 1 to 50. "
+        "XRPL trust line tokens also need currency, sent exactly as issued "
+        "(case-sensitive). enabled, if sent, must be true or false. A token "
+        "argument left out is not changed."
     )
     args_schema: Type[ConfigureTokensSchema] = ConfigureTokensSchema
 

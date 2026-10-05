@@ -26,22 +26,6 @@ class CheckDiscountSchema(BaseModel):
         default=None,
         description="XRPL wallet address (r-address).",
     )
-    bitcoin_wallet: Optional[str] = Field(
-        default=None,
-        description="Bitcoin address.",
-    )
-    tron_wallet: Optional[str] = Field(
-        default=None,
-        description="Tron wallet address (T-prefixed).",
-    )
-    stellar_wallet: Optional[str] = Field(
-        default=None,
-        description="Stellar wallet address (G-prefixed).",
-    )
-    sui_wallet: Optional[str] = Field(
-        default=None,
-        description="Sui wallet address (0x + 64 hex).",
-    )
 
 
 class InsumerCheckDiscountTool(BaseTool):
@@ -71,10 +55,6 @@ class InsumerCheckDiscountTool(BaseTool):
         wallet: Optional[str] = None,
         solana_wallet: Optional[str] = None,
         xrpl_wallet: Optional[str] = None,
-        bitcoin_wallet: Optional[str] = None,
-        tron_wallet: Optional[str] = None,
-        stellar_wallet: Optional[str] = None,
-        sui_wallet: Optional[str] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         """Check the discount."""
@@ -83,9 +63,5 @@ class InsumerCheckDiscountTool(BaseTool):
             wallet=wallet,
             solana_wallet=solana_wallet,
             xrpl_wallet=xrpl_wallet,
-            bitcoin_wallet=bitcoin_wallet,
-            tron_wallet=tron_wallet,
-            stellar_wallet=stellar_wallet,
-            sui_wallet=sui_wallet,
         )
         return json.dumps(result, indent=2)

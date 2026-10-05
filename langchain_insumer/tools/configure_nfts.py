@@ -18,7 +18,13 @@ class ConfigureNftsSchema(BaseModel):
         description=(
             "JSON array of NFT collection configurations (0-4). Each: "
             '{"name": "Collection Name", "contractAddress": "0x...", '
-            '"chainId": 1, "discount": 10}. Discount is 1-50%. '
+            '"chainId": 1, "discount": 10}. Discount is a whole number from 1 to 50 '
+            "(no decimals; 7.5 is refused with a 400). "
+            'For an XRPL collection (chainId "xrpl") contractAddress is the issuer '
+            'r-address, and an optional "taxon" (a whole number from 0 to 4294967295) '
+            "limits it to one taxon. "
+            '"enabled" is optional; if sent it must be JSON true or false, never a string. '
+            "The array replaces the stored list. "
             "Pass as a JSON string."
         ),
     )
@@ -28,14 +34,17 @@ class InsumerConfigureNftsTool(BaseTool):
     """Configure NFT collections that grant discounts at a merchant. Owner only.
 
     Max 4 NFT collections per merchant. Each collection specifies a
-    contract address, chain, and flat discount percentage (1-50%).
+    contract address, chain, and flat discount percentage (a whole number
+    from 1 to 50).
     """
 
     name: str = "insumer_configure_nfts"
     description: str = (
         "Configure NFT collections that grant discounts at a merchant. "
         "Max 4 collections. Each specifies contract address, chain, and "
-        "discount percentage (1-50%). Owner only. Pass nft_collections "
+        "discount percentage (a whole number from 1 to 50). XRPL collections "
+        "take the issuer r-address and an optional taxon. enabled, if sent, "
+        "must be true or false. Owner only. Pass nft_collections "
         "as a JSON array string."
     )
     args_schema: Type[ConfigureNftsSchema] = ConfigureNftsSchema

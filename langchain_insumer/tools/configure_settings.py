@@ -23,7 +23,7 @@ class ConfigureSettingsSchema(BaseModel):
     )
     discount_cap: Optional[int] = Field(
         default=None,
-        description="Maximum total discount percentage (1-100).",
+        description="Maximum total discount percentage: a whole number from 1 to 100 (no decimals).",
         ge=1,
         le=100,
     )
@@ -46,7 +46,7 @@ class InsumerConfigureSettingsTool(BaseTool):
     name: str = "insumer_configure_settings"
     description: str = (
         "Update merchant settings. Options: discount stacking mode "
-        '("highest" or "stack"), discount cap (1-100%), and USDC payment '
+        '("highest" or "stack"), discount cap (a whole number from 1 to 100), and USDC payment '
         "configuration (wallet addresses, preferred chain). All fields "
         "optional. Owner only."
     )

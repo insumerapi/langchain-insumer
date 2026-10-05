@@ -79,7 +79,8 @@ class AttestSchema(BaseModel):
             'For evm_view_call (EVM chains only): add "selector" as the canonical signature of a single-address-argument view function returning bool (e.g. "hasAccess(address)"). '
             'For erc8004_agent (Base, chainId 8453): add "agentId" as a uint256 decimal string (met iff the wallet owns the agent NFT or is the registry agentWallet binding; registration is permissionless, no vetting implied). '
             'For erc7710_delegation (Base, chainId 8453, max 3 per call): add "delegationManager" (a recognized MetaMask Delegation Framework manager), "expectedDelegator" (the asserted principal), and "delegation" ({delegator, delegate, authority, caveats, salt, signature}); met iff the wallet is the delegate, the delegator matches, the EIP-712 signature verifies (EOA or ERC-1271), unrevoked at the anchored block, all caveat enforcers recognized, time windows satisfied. Spend/target/call limits are reported as declaredLimits, not simulated. Delegation attestations expire in 5 minutes. '
-            "taxon: XRPL NFToken taxon filter (integer, optional). "
+            'currency: XRPL trust line currency code (e.g. "RLUSD"); required for XRPL trust line tokens (contractAddress is the issuer r-address). Codes are case-sensitive: send the code exactly as the issuer created it and never change its letter case. To check XRP itself use contractAddress "native" with no currency; "XRP" is not a trust line currency. '
+            "taxon: XRPL NFToken taxon filter (optional): a whole number from 0 to 4294967295. "
             'assetCode: Stellar trustline asset code (e.g. "USDC", "BENJI"); required for Stellar non-native tokens. '
             "Supported chains: Ethereum (1), XDC (50), BNB (56), Base (8453), Polygon (137), "
             "Arbitrum (42161), Optimism (10), Avalanche (43114), World Chain (480), "

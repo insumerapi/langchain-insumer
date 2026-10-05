@@ -324,3 +324,42 @@ class TestTools:
     def test_verify_tool_name(self, api):
         tool = InsumerVerifyTool(api_wrapper=api)
         assert tool.name == "insumer_verify"
+
+
+class TestUnreadMerchantWallets:
+    """The merchant endpoints read wallet, solanaWallet and xrplWallet only."""
+
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_post_methods_warn_and_do_not_send(self, mock_post, api, mock_response):
+        mock_response.json.return_value = {"ok": True, "data": {}}
+        mock_post.return_value = mock_response
+        for method in (api.verify, api.acp_discount, api.ucp_discount):
+            with pytest.warns(DeprecationWarning, match="wallet, solanaWallet and xrplWallet"):
+                method(
+                    merchant_id="acme",
+                    wallet="0x" + "ab" * 20,
+                    bitcoin_wallet="bc1qexample",
+                    tron_wallet="Texample",
+                    stellar_wallet="Gexample",
+                    sui_wallet="0x" + "ab" * 32,
+                )
+            body = mock_post.call_args.kwargs["json"]
+            assert body["wallet"] == "0x" + "ab" * 20
+            for key in ("bitcoinWallet", "tronWallet", "stellarWallet", "suiWallet"):
+                assert key not in body
+
+    @patch("langchain_insumer.wrapper.requests.get")
+    def test_check_discount_warns_and_does_not_send(self, mock_get, api, mock_response):
+        mock_response.json.return_value = {"ok": True, "data": {}}
+        mock_get.return_value = mock_response
+        with pytest.warns(DeprecationWarning, match="sui_wallet"):
+            api.check_discount(merchant_id="acme", xrpl_wallet="rExample", sui_wallet="0x" + "ab" * 32)
+        params = mock_get.call_args.kwargs["params"]
+        assert params == {"merchant": "acme", "xrplWallet": "rExample"}
+
+    @patch("langchain_insumer.wrapper.requests.get")
+    def test_no_warning_without_them(self, mock_get, api, mock_response, recwarn):
+        mock_response.json.return_value = {"ok": True, "data": {}}
+        mock_get.return_value = mock_response
+        api.check_discount(merchant_id="acme", wallet="0x" + "ab" * 20)
+        assert not [w for w in recwarn if issubclass(w.category, DeprecationWarning)]

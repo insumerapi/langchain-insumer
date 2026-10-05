@@ -26,22 +26,6 @@ class UcpDiscountSchema(BaseModel):
         default=None,
         description="XRPL wallet address (r-address).",
     )
-    bitcoin_wallet: Optional[str] = Field(
-        default=None,
-        description="Bitcoin address.",
-    )
-    tron_wallet: Optional[str] = Field(
-        default=None,
-        description="Tron wallet address (T-prefixed).",
-    )
-    stellar_wallet: Optional[str] = Field(
-        default=None,
-        description="Stellar wallet address (G-prefixed).",
-    )
-    sui_wallet: Optional[str] = Field(
-        default=None,
-        description="Sui wallet address (0x + 64 hex).",
-    )
     items: Optional[list] = Field(
         default=None,
         description=(
@@ -79,10 +63,6 @@ class InsumerUcpDiscountTool(BaseTool):
         wallet: Optional[str] = None,
         solana_wallet: Optional[str] = None,
         xrpl_wallet: Optional[str] = None,
-        bitcoin_wallet: Optional[str] = None,
-        tron_wallet: Optional[str] = None,
-        stellar_wallet: Optional[str] = None,
-        sui_wallet: Optional[str] = None,
         items: Optional[list] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
@@ -92,10 +72,6 @@ class InsumerUcpDiscountTool(BaseTool):
             wallet=wallet,
             solana_wallet=solana_wallet,
             xrpl_wallet=xrpl_wallet,
-            bitcoin_wallet=bitcoin_wallet,
-            tron_wallet=tron_wallet,
-            stellar_wallet=stellar_wallet,
-            sui_wallet=sui_wallet,
             items=items,
         )
         return json.dumps(result, indent=2)

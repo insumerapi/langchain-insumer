@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "langchain-insumer"
-version = "0.13.8"
+version = "0.13.9"
 description = "LangChain tools for InsumerAPI: condition-based access across 37 blockchains (incl. Tron, Stellar, Sui, XDC, Robinhood Chain). Wallet trust profiles (145 base checks across 27 chains in 9 dimensions, up to 166 across 29 chains in 13), EAS attestations, Gitcoin Passport, Farcaster ID, staking positions, compliance templates, ACP/UCP commerce, domain verification, merchant onboarding, USDC/USDT/BTC/USDT-TRC20 key purchase, and credit management. ECDSA-signed booleans, optional Merkle proofs, 26 tools."
 readme = "README.md"
 license = "MIT"

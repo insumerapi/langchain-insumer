@@ -5,6 +5,8 @@ from typing import Any, Optional
 
 from decimal import Decimal
 
+import warnings
+
 import requests
 from pydantic import BaseModel, Field, model_validator
 
@@ -64,6 +66,21 @@ def _raise_for_status(resp: requests.Response) -> None:
     raise requests.HTTPError(
         f"InsumerAPI returned HTTP {status}: {detail}", response=resp
     )
+
+
+_MERCHANT_UNREAD_WALLETS = ("bitcoin_wallet", "tron_wallet", "stellar_wallet", "sui_wallet")
+
+
+def _warn_unread_wallets(method: str, **wallets: Optional[str]) -> None:
+    """Warn when a wallet the merchant endpoints do not read is passed. It is not sent."""
+    passed = [name for name, value in wallets.items() if value]
+    if passed:
+        warnings.warn(
+            f"{method}(): {', '.join(passed)} is deprecated and is not sent. "
+            "The API reads only wallet, solanaWallet and xrplWallet on this endpoint.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
 
 
 class InsumerAPIWrapper(BaseModel):
@@ -233,8 +250,11 @@ class InsumerAPIWrapper(BaseModel):
                   read from the chain. If sent it is only a cross-check, and a value that
                   differs from the token's own decimals is rejected with a 400.
                 - label: Human-readable label
-                - taxon: XRPL NFToken taxon filter (integer, optional)
-                - currency: XRPL trust line currency code (e.g. "USD" for RLUSD)
+                - taxon: XRPL NFToken taxon filter (optional): a whole number from 0 to
+                  4294967295
+                - currency: XRPL trust line currency code (e.g. "RLUSD"). Required for XRPL
+                  trust line tokens. Case-sensitive: send it exactly as the issuer created it.
+                  For XRP itself use contractAddress "native" with no currency.
                 - assetCode: Stellar trustline asset code (e.g. "USDC", "BENJI"). Required
                   for Stellar non-native tokens. Flows into conditionHash.
                 - template: Compliance template name (for eas_attestation, e.g.
@@ -517,6 +537,13 @@ class InsumerAPIWrapper(BaseModel):
         sui_wallet: Optional[str] = None,
     ) -> dict:
         """Calculate discount for a wallet at a merchant. No authentication required. Free, no credits consumed."""
+        _warn_unread_wallets(
+            "check_discount",
+            bitcoin_wallet=bitcoin_wallet,
+            tron_wallet=tron_wallet,
+            stellar_wallet=stellar_wallet,
+            sui_wallet=sui_wallet,
+        )
         params: dict[str, Any] = {"merchant": merchant_id}
         if wallet:
             params["wallet"] = wallet
@@ -524,14 +551,6 @@ class InsumerAPIWrapper(BaseModel):
             params["solanaWallet"] = solana_wallet
         if xrpl_wallet:
             params["xrplWallet"] = xrpl_wallet
-        if bitcoin_wallet:
-            params["bitcoinWallet"] = bitcoin_wallet
-        if tron_wallet:
-            params["tronWallet"] = tron_wallet
-        if stellar_wallet:
-            params["stellarWallet"] = stellar_wallet
-        if sui_wallet:
-            params["suiWallet"] = sui_wallet
         resp = requests.get(
             f"{BASE_URL}/discount/check",
             params=params,
@@ -552,6 +571,13 @@ class InsumerAPIWrapper(BaseModel):
         sui_wallet: Optional[str] = None,
     ) -> dict:
         """Create a signed discount code (INSR-XXXXX), valid 30 minutes. Costs 1 credit."""
+        _warn_unread_wallets(
+            "verify",
+            bitcoin_wallet=bitcoin_wallet,
+            tron_wallet=tron_wallet,
+            stellar_wallet=stellar_wallet,
+            sui_wallet=sui_wallet,
+        )
         body: dict[str, Any] = {"merchantId": merchant_id}
         if wallet:
             body["wallet"] = wallet
@@ -559,14 +585,6 @@ class InsumerAPIWrapper(BaseModel):
             body["solanaWallet"] = solana_wallet
         if xrpl_wallet:
             body["xrplWallet"] = xrpl_wallet
-        if bitcoin_wallet:
-            body["bitcoinWallet"] = bitcoin_wallet
-        if tron_wallet:
-            body["tronWallet"] = tron_wallet
-        if stellar_wallet:
-            body["stellarWallet"] = stellar_wallet
-        if sui_wallet:
-            body["suiWallet"] = sui_wallet
         return self._post("/verify", body)
 
     def buy_key(
@@ -723,10 +741,9 @@ class InsumerAPIWrapper(BaseModel):
             wallet: EVM wallet address (0x...).
             solana_wallet: Solana wallet address (base58).
             xrpl_wallet: XRPL wallet address (r-address).
-            bitcoin_wallet: Bitcoin address.
-            tron_wallet: Tron wallet address (T-prefixed).
-            stellar_wallet: Stellar wallet address (G-prefixed).
-            sui_wallet: Sui wallet address (0x + 64 hex).
+            bitcoin_wallet, tron_wallet, stellar_wallet, sui_wallet: Deprecated.
+                Accepted for compatibility and not sent: this endpoint reads
+                only wallet, solanaWallet and xrplWallet.
             items: Optional line items for per-item allocations. Each dict has
                 ``path`` (JSONPath, e.g. '$.line_items[0]') and ``amount`` (cents).
 
@@ -734,6 +751,13 @@ class InsumerAPIWrapper(BaseModel):
             ACP-format response with discounts.applied, discounts.rejected,
             coupon objects, and ECDSA-signed verification block.
         """
+        _warn_unread_wallets(
+            "acp_discount",
+            bitcoin_wallet=bitcoin_wallet,
+            tron_wallet=tron_wallet,
+            stellar_wallet=stellar_wallet,
+            sui_wallet=sui_wallet,
+        )
         body: dict[str, Any] = {"merchantId": merchant_id}
         if wallet:
             body["wallet"] = wallet
@@ -741,14 +765,6 @@ class InsumerAPIWrapper(BaseModel):
             body["solanaWallet"] = solana_wallet
         if xrpl_wallet:
             body["xrplWallet"] = xrpl_wallet
-        if bitcoin_wallet:
-            body["bitcoinWallet"] = bitcoin_wallet
-        if tron_wallet:
-            body["tronWallet"] = tron_wallet
-        if stellar_wallet:
-            body["stellarWallet"] = stellar_wallet
-        if sui_wallet:
-            body["suiWallet"] = sui_wallet
         if items is not None:
             body["items"] = items
         return self._post("/acp/discount", body)
@@ -776,10 +792,9 @@ class InsumerAPIWrapper(BaseModel):
             wallet: EVM wallet address (0x...).
             solana_wallet: Solana wallet address (base58).
             xrpl_wallet: XRPL wallet address (r-address).
-            bitcoin_wallet: Bitcoin address.
-            tron_wallet: Tron wallet address (T-prefixed).
-            stellar_wallet: Stellar wallet address (G-prefixed).
-            sui_wallet: Sui wallet address (0x + 64 hex).
+            bitcoin_wallet, tron_wallet, stellar_wallet, sui_wallet: Deprecated.
+                Accepted for compatibility and not sent: this endpoint reads
+                only wallet, solanaWallet and xrplWallet.
             items: Optional line items for per-item allocations. Each dict has
                 ``path`` (JSONPath, e.g. '$.line_items[0]') and ``amount`` (cents).
 
@@ -787,6 +802,13 @@ class InsumerAPIWrapper(BaseModel):
             UCP-format response with discounts.applied, extension field,
             and ECDSA-signed verification block.
         """
+        _warn_unread_wallets(
+            "ucp_discount",
+            bitcoin_wallet=bitcoin_wallet,
+            tron_wallet=tron_wallet,
+            stellar_wallet=stellar_wallet,
+            sui_wallet=sui_wallet,
+        )
         body: dict[str, Any] = {"merchantId": merchant_id}
         if wallet:
             body["wallet"] = wallet
@@ -794,14 +816,6 @@ class InsumerAPIWrapper(BaseModel):
             body["solanaWallet"] = solana_wallet
         if xrpl_wallet:
             body["xrplWallet"] = xrpl_wallet
-        if bitcoin_wallet:
-            body["bitcoinWallet"] = bitcoin_wallet
-        if tron_wallet:
-            body["tronWallet"] = tron_wallet
-        if stellar_wallet:
-            body["stellarWallet"] = stellar_wallet
-        if sui_wallet:
-            body["suiWallet"] = sui_wallet
         if items is not None:
             body["items"] = items
         return self._post("/ucp/discount", body)
