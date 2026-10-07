@@ -32,9 +32,13 @@ class InsumerListTokensTool(BaseTool):
 
     name: str = "insumer_list_tokens"
     description: str = (
-        "List all tokens and NFT collections registered in The Insumer Model "
-        "ecosystem. Filter by blockchain, symbol, or asset type (token/nft). "
-        "Returns contract addresses, chain IDs, and metadata."
+        "List the tokens and NFT collections listed in the Insumer registry. "
+        "Filter by blockchain, symbol, or asset type (token/nft). Returns "
+        "contract addresses, chain IDs, and metadata. The registry is a "
+        "directory, not the list of what can be checked: an attestation can "
+        "check any token on a supported chain, and NFTs on EVM chains, Solana "
+        "and XRPL, whether listed or not. An empty result means nothing is "
+        "listed under that filter, not that the token is unsupported."
     )
     args_schema: Type[ListTokensSchema] = ListTokensSchema
 

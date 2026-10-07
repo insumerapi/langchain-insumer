@@ -277,7 +277,7 @@ print(attest.run({
 | `InsumerAttestTool` | Verify on-chain conditions (token balances, NFT ownership, EAS attestations, Farcaster identity). Optional `proof="merkle"` for EIP-1186 Merkle proofs. | 1/call (2 with merkle) |
 | `InsumerComplianceTemplatesTool` | List available EAS compliance templates (Coinbase Verifications on Base, Gitcoin Passport on Optimism). | Free |
 | `InsumerWalletTrustTool` | Generate wallet trust fact profile (145 base checks across 27 chains in 9 dimensions: stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names; up to 166 across 29 chains in 13 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets; Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check; the signed `conditionSetVersion` (currently `2026-10`) names the check list run. | 3/call (6 with merkle) |
-| `InsumerBatchWalletTrustTool` | Batch trust profiles for up to 10 wallets. 5-8x faster. Each wallet can include optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet` and `suiWallet`. | 3/wallet (6 with merkle) |
+| `InsumerBatchWalletTrustTool` | Batch trust profiles for up to 10 wallets. 5-8x faster. Each wallet can include optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet` and `suiWallet`. The model reads a per-wallet summary; the signed profiles are the tool result's artifact (see [Batch trust: summary and signed profiles](#batch-trust-summary-and-signed-profiles)). | 3/wallet (6 with merkle) |
 | `InsumerVerifyTool` | Create signed discount code (INSR-XXXXX), valid 30 min. | 1/call |
 | `InsumerConfirmPaymentTool` | Confirm USDC payment for a discount code. | Free |
 | `InsumerJwksTool` | Get the JWKS: the ECDSA P-256 signing key under three kids plus the ML-DSA-65 post-quantum key under two RFC 9964 `AKP` entries. | Free |
@@ -288,7 +288,7 @@ print(attest.run({
 |------|-------------|---------|
 | `InsumerListMerchantsTool` | Browse merchant directory, filter by token/status. | Free |
 | `InsumerGetMerchantTool` | Get full public merchant profile with tier structures. | Free |
-| `InsumerListTokensTool` | List registered tokens and NFTs, filter by chain/symbol. | Free |
+| `InsumerListTokensTool` | List the tokens and NFTs listed in the Insumer registry, filter by chain/symbol. A directory, not the list of what can be checked. | Free |
 | `InsumerCheckDiscountTool` | Calculate discount for a wallet at a merchant. | Free |
 
 ### Credits
@@ -325,6 +325,27 @@ print(attest.run({
 | `InsumerAcpDiscountTool` | Check discount eligibility in OpenAI/Stripe ACP format. Returns coupon objects and per-item allocations. | 1/call |
 | `InsumerUcpDiscountTool` | Check discount eligibility in Google UCP format. Returns title, extension field, and applied array. | 1/call |
 | `InsumerValidateCodeTool` | Validate an INSR-XXXXX discount code. Returns validity, discount percent, expiry. | Free |
+
+## Batch trust: summary and signed profiles
+
+A trust profile lists every check, tens of thousands of characters per wallet, so ten full profiles are more than a model can read from one tool result. `InsumerBatchWalletTrustTool` therefore returns content and an artifact (`response_format="content_and_artifact"`):
+
+- **Content** (what the model reads): a summary per wallet with the profile ID, the held / not held / not evaluated counts, and the checks held in each dimension.
+- **Artifact**: the complete API response with every signed profile, unchanged, ready for [`insumer-verify`](https://pypi.org/project/insumer-verify/).
+
+When an agent calls the tool, the artifact is on the `ToolMessage`:
+
+```python
+batch_tool = InsumerBatchWalletTrustTool(api_wrapper=api)
+msg = batch_tool.invoke({
+    "type": "tool_call", "id": "1", "name": "insumer_batch_wallet_trust",
+    "args": {"wallets": [{"wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"}]},
+})
+print(msg.content)                        # the summary
+profiles = msg.artifact["data"]["results"]  # the signed profiles
+```
+
+Called with plain arguments (`batch_tool.invoke({"wallets": [...]})`), the tool returns only the content. **Changed in 0.14.0:** a plain-argument call used to return the complete JSON; it now returns the summary. Pass `detail="full"` for the complete response as text (the pre-0.14.0 output), or call `InsumerAPIWrapper.batch_wallet_trust()` directly for the parsed response. Profiles cannot be fetched again, so choose `detail` on the call that needs it.
 
 ## Using All Tools
 

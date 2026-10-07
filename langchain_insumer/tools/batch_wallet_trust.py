@@ -1,12 +1,13 @@
 """Tool for generating batch wallet trust fact profiles."""
 
 import json
-from typing import Optional, Type
+from typing import Any, Literal, Optional, Tuple, Type
 
 from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
+from langchain_insumer.tools._batch_summary import summarize_batch_trust
 from langchain_insumer.wrapper import InsumerAPIWrapper
 
 
@@ -31,6 +32,17 @@ class BatchWalletTrustSchema(BaseModel):
             "Costs 6 credits per wallet instead of 3."
         ),
     )
+    detail: Literal["summary", "full"] = Field(
+        default="summary",
+        description=(
+            '"summary" (default): the text is a short summary per wallet and the '
+            "complete signed profiles are in the tool result's artifact. "
+            '"full": the complete signed profiles as text too, tens of thousands '
+            "of characters per wallet. Choose it on the call that needs it: "
+            "profiles cannot be fetched again, so a second call signs fresh "
+            "profiles and is charged again. Not sent to the API."
+        ),
+    )
 
 
 class InsumerBatchWalletTrustTool(BaseTool):
@@ -40,6 +52,10 @@ class InsumerBatchWalletTrustTool(BaseTool):
     wallet gets an independently ECDSA-signed profile. Supports partial
     success. Costs 3 credits per successful wallet (standard) or 6 credits
     per wallet (with proof="merkle"). Credits only charged for successes.
+
+    The tool returns content and an artifact. The content, which is what a
+    model reads, is a per-wallet summary by default; the artifact is the
+    complete API response with every signed profile, unchanged.
     """
 
     name: str = "insumer_batch_wallet_trust"
@@ -48,9 +64,15 @@ class InsumerBatchWalletTrustTool(BaseTool):
         "request. Shared block fetches make this 5-8x faster than sequential "
         "calls. Each wallet gets an independently ECDSA-signed profile with "
         "its own TRST-XXXXX ID. Supports partial success. Costs 3 credits per "
-        'successful wallet (standard) or 6 per wallet (proof="merkle").'
+        'successful wallet (standard) or 6 per wallet (proof="merkle"). '
+        "Each profile lists every check, so the response is large; by default "
+        "the text is a summary per wallet (profile ID, held / not held / not "
+        "evaluated counts, and the checks held in each dimension) and the "
+        "complete signed profiles are returned unchanged as the tool result's "
+        'artifact. Set detail="full" on the call to get them as text too.'
     )
     args_schema: Type[BatchWalletTrustSchema] = BatchWalletTrustSchema
+    response_format: Literal["content", "content_and_artifact"] = "content_and_artifact"
 
     api_wrapper: InsumerAPIWrapper = Field(..., exclude=True)
 
@@ -61,11 +83,15 @@ class InsumerBatchWalletTrustTool(BaseTool):
         self,
         wallets: list[dict],
         proof: Optional[str] = None,
+        detail: str = "summary",
         run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
+    ) -> Tuple[str, Any]:
         """Generate batch wallet trust fact profiles."""
         result = self.api_wrapper.batch_wallet_trust(
             wallets=wallets,
             proof=proof,
         )
-        return json.dumps(result, indent=2)
+        summary = None if detail == "full" else summarize_batch_trust(result)
+        if summary is None:
+            return json.dumps(result, indent=2), result
+        return summary, result

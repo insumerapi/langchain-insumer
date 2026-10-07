@@ -9,6 +9,7 @@ import requests
 from langchain_insumer import (
     InsumerAPIWrapper,
     InsumerAttestTool,
+    InsumerBatchWalletTrustTool,
     InsumerCheckDiscountTool,
     InsumerCreditsTool,
     InsumerListMerchantsTool,
@@ -363,3 +364,100 @@ class TestUnreadMerchantWallets:
         mock_get.return_value = mock_response
         api.check_discount(merchant_id="acme", wallet="0x" + "ab" * 20)
         assert not [w for w in recwarn if issubclass(w.category, DeprecationWarning)]
+
+
+def _row(label, met, **extra):
+    return {"label": label, "chainId": 1, "met": met, "conditionHash": "0x00", **extra}
+
+
+BATCH = {
+    "ok": True,
+    "data": {
+        "results": [
+            {
+                "trust": {
+                    "id": "TRST-AAAAA",
+                    "wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+                    "conditionSetVersion": "2026-10",
+                    "expiresAt": "2026-10-07T19:32:38.129Z",
+                    "dimensions": {
+                        "stablecoins": {"checks": [_row("USDC on Ethereum", True), _row("USDT on Ethereum", False)], "total": 2},
+                        "institutional_stablecoins": {"checks": [_row("USDC on Solana", False, evaluated=False)], "total": 1},
+                    },
+                    "summary": {"totalChecks": 3, "totalPassed": 1, "totalFailed": 1, "totalNotEvaluated": 1},
+                },
+                "sig": "c2ln",
+                "kid": "insumer-trust-v2",
+                "pqSig": "cHE=",
+                "pqKid": "insumer-trust-pq1",
+            },
+            {"error": {"wallet": "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D", "message": "rpc_failure"}},
+        ],
+        "summary": {"requested": 2, "succeeded": 1, "failed": 1},
+    },
+    "meta": {"creditsCharged": 3, "creditsRemaining": 997},
+}
+
+
+class TestBatchTrustSummary:
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_tool_call_gives_summary_content_and_signed_artifact(self, mock_post, api, mock_response):
+        mock_response.json.return_value = BATCH
+        mock_post.return_value = mock_response
+        tool = InsumerBatchWalletTrustTool(api_wrapper=api)
+        msg = tool.invoke({"type": "tool_call", "id": "1", "name": tool.name,
+                           "args": {"wallets": [{"wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"}]}})
+        assert msg.artifact == BATCH
+        assert msg.content.startswith("Batch trust profiles: 2 requested, 1 signed, 1 not signed. Credits charged: 3.")
+        assert "1. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 · TRST-AAAAA · check set 2026-10" in msg.content
+        assert "signed (insumer-trust-v2 + insumer-trust-pq1)" in msg.content
+        assert "stablecoins: 1 of 2 held: USDC on Ethereum" in msg.content
+        assert "USDT on Ethereum" not in msg.content
+        assert "institutional_stablecoins: 0 of 1 held (1 not evaluated)" in msg.content
+        assert "not signed: rpc_failure" in msg.content and "never read this entry as a no" in msg.content
+        assert "No credits were charged for it." in msg.content
+        assert "c2ln" not in msg.content
+        assert "detail" not in mock_post.call_args.kwargs["json"]
+
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_plain_invoke_returns_summary(self, mock_post, api, mock_response):
+        mock_response.json.return_value = BATCH
+        mock_post.return_value = mock_response
+        out = InsumerBatchWalletTrustTool(api_wrapper=api).invoke({"wallets": [{"wallet": "0x" + "ab" * 20}]})
+        assert isinstance(out, str) and out.startswith("Batch trust profiles:")
+
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_detail_full_returns_complete_json(self, mock_post, api, mock_response):
+        mock_response.json.return_value = BATCH
+        mock_post.return_value = mock_response
+        out = InsumerBatchWalletTrustTool(api_wrapper=api).invoke({"wallets": [{"wallet": "0x" + "ab" * 20}], "detail": "full"})
+        assert json.loads(out) == BATCH
+        assert "detail" not in mock_post.call_args.kwargs["json"]
+
+    def test_paid_per_call_wording(self):
+        from langchain_insumer.tools._batch_summary import summarize_batch_trust
+        text = summarize_batch_trust({**BATCH, "meta": {"creditsCharged": 0, "creditsRemaining": None}})
+        assert "Paid per call: the payment covered every wallet requested." in text
+        assert "Credits charged" not in text and "No credits were charged" not in text
+
+    def test_unsigned_profile_is_never_shown_as_signed(self):
+        from langchain_insumer.tools._batch_summary import summarize_batch_trust
+        entry = {"trust": BATCH["data"]["results"][0]["trust"]}
+        text = summarize_batch_trust({"ok": True, "data": {"results": [entry]}, "meta": {}})
+        assert "returned without a signature: do not rely on it" in text and "signed (" not in text
+
+    def test_malformed_input(self):
+        from langchain_insumer.tools._batch_summary import summarize_batch_trust
+        assert summarize_batch_trust({"ok": True}) is None
+        assert summarize_batch_trust({"ok": True, "data": {"results": "x"}}) is None
+        assert summarize_batch_trust("x") is None
+        summarize_batch_trust({"ok": True, "data": {"results": [None, "x", 1, {"trust": None}, {"error": "boom"}, {"trust": {"dimensions": "x"}}]}})
+
+
+
+def test_signed_count_and_pq_label_need_the_signature_fields():
+    from langchain_insumer.tools._batch_summary import summarize_batch_trust
+    trust = BATCH["data"]["results"][0]["trust"]
+    text = summarize_batch_trust({"ok": True, "data": {"results": [{"trust": trust}, {"trust": trust, "sig": "s", "kid": "k", "pqKid": "p"}]}, "meta": {}})
+    assert text.startswith("Batch trust profiles: 2 requested, 1 signed, 1 not signed.")
+    assert "signed (k)" in text and "+ p" not in text
