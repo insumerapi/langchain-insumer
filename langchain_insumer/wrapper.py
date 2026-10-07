@@ -482,8 +482,7 @@ class InsumerAPIWrapper(BaseModel):
     ) -> dict:
         """Generate wallet trust fact profiles for up to 10 wallets in one request.
 
-        Shared block fetches make this 5-8x faster than sequential
-        ``wallet_trust()`` calls. Each wallet gets an independently
+        Faster than sequential ``wallet_trust()`` calls. Each wallet gets an independently
         ECDSA-signed profile with the same dimensions as ``wallet_trust()``
         (155 base checks in 10 dimensions, up to 176 in 14), in the same fixed
         dimension order for every wallet in the batch. Supports partial

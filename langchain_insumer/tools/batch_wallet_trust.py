@@ -49,17 +49,16 @@ class BatchWalletTrustSchema(BaseModel):
 class InsumerBatchWalletTrustTool(BaseTool):
     """Generate wallet trust fact profiles for up to 10 wallets in one request.
 
-    Shared block fetches make this 5-8x faster than sequential calls. Each
-    wallet gets an independently ECDSA-signed profile with the same
-    dimensions as the single-wallet tool (155 base checks across 27 chains in
-    10 dimensions, up to 176 across 29 chains in 14 with the optional Solana,
-    XRPL, Bitcoin and Tron wallets; the account dimension reports contract
-    code or EIP-7702 delegation present on Ethereum, Base, Arbitrum, Optimism
-    and Polygon), in the same fixed dimension order for every wallet; the
-    signed conditionSetVersion (currently "2026-10-08") names the check list
-    run. Supports partial success. Costs 3 credits per successful wallet
-    (standard) or 6 credits per wallet (with proof="merkle"). Credits only
-    charged for successes.
+    Faster than sequential calls. Each wallet gets an independently
+    ECDSA-signed profile with the same dimensions as the single-wallet tool
+    (155 base checks across 27 chains in 10 dimensions, up to 176 across 29
+    chains in 14 with the optional Solana, XRPL, Bitcoin and Tron wallets;
+    the account dimension reports contract code or EIP-7702 delegation
+    present on Ethereum, Base, Arbitrum, Optimism and Polygon), in the same
+    fixed dimension order for every wallet; the signed conditionSetVersion
+    (currently "2026-10-08") names the check list run. Supports partial
+    success. Costs 3 credits per successful wallet (standard) or 6 credits
+    per wallet (with proof="merkle"). Credits only charged for successes.
 
     The tool returns content and an artifact. The content, which is what a
     model reads, is a per-wallet summary by default; the artifact is the
@@ -69,8 +68,8 @@ class InsumerBatchWalletTrustTool(BaseTool):
     name: str = "insumer_batch_wallet_trust"
     description: str = (
         "Generate wallet trust fact profiles for up to 10 wallets in a single "
-        "request. Shared block fetches make this 5-8x faster than sequential "
-        "calls. Each wallet gets an independently ECDSA-signed profile with "
+        "request. Faster than sequential calls. Each wallet gets an "
+        "independently ECDSA-signed profile with "
         "its own TRST-XXXXX ID: 155 base checks across 27 chains in 10 "
         "dimensions (stablecoins, governance, nfts, staking, "
         "institutional_stablecoins, tokenized_treasuries, stablecoin_deposits, "
