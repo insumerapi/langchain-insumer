@@ -28,8 +28,9 @@ class BatchWalletTrustSchema(BaseModel):
     proof: Optional[str] = Field(
         default=None,
         description=(
-            'Set to "merkle" to include EIP-1186 Merkle storage proofs. '
-            "Costs 6 credits per wallet instead of 3."
+            'Set to "merkle" to include EIP-1186 Merkle storage proofs on EVM '
+            "token checks. Account rows carry proof.available false with a "
+            "reason pointing at /v1/attest. Costs 6 credits per wallet instead of 3."
         ),
     )
     detail: Literal["summary", "full"] = Field(
@@ -49,9 +50,16 @@ class InsumerBatchWalletTrustTool(BaseTool):
     """Generate wallet trust fact profiles for up to 10 wallets in one request.
 
     Shared block fetches make this 5-8x faster than sequential calls. Each
-    wallet gets an independently ECDSA-signed profile. Supports partial
-    success. Costs 3 credits per successful wallet (standard) or 6 credits
-    per wallet (with proof="merkle"). Credits only charged for successes.
+    wallet gets an independently ECDSA-signed profile with the same
+    dimensions as the single-wallet tool (155 base checks across 27 chains in
+    10 dimensions, up to 176 across 29 chains in 14 with the optional Solana,
+    XRPL, Bitcoin and Tron wallets; the account dimension reports contract
+    code or EIP-7702 delegation present on Ethereum, Base, Arbitrum, Optimism
+    and Polygon), in the same fixed dimension order for every wallet; the
+    signed conditionSetVersion (currently "2026-10-08") names the check list
+    run. Supports partial success. Costs 3 credits per successful wallet
+    (standard) or 6 credits per wallet (with proof="merkle"). Credits only
+    charged for successes.
 
     The tool returns content and an artifact. The content, which is what a
     model reads, is a per-wallet summary by default; the artifact is the
@@ -63,11 +71,17 @@ class InsumerBatchWalletTrustTool(BaseTool):
         "Generate wallet trust fact profiles for up to 10 wallets in a single "
         "request. Shared block fetches make this 5-8x faster than sequential "
         "calls. Each wallet gets an independently ECDSA-signed profile with "
-        "its own TRST-XXXXX ID. Supports partial success. Costs 3 credits per "
+        "its own TRST-XXXXX ID: 155 base checks across 27 chains in 10 "
+        "dimensions (stablecoins, governance, nfts, staking, "
+        "institutional_stablecoins, tokenized_treasuries, stablecoin_deposits, "
+        "wrapped_bitcoin, names, account), up to 176 across 29 chains in 14 "
+        "with the optional wallets, in a fixed dimension order for every "
+        "wallet. Supports partial success. Costs 3 credits per "
         'successful wallet (standard) or 6 per wallet (proof="merkle"). '
         "Each profile lists every check, so the response is large; by default "
         "the text is a summary per wallet (profile ID, held / not held / not "
-        "evaluated counts, and the checks held in each dimension) and the "
+        "evaluated counts, and the checks held in each dimension; the account "
+        "dimension says present) and the "
         "complete signed profiles are returned unchanged as the tool result's "
         'artifact. Set detail="full" on the call to get them as text too.'
     )

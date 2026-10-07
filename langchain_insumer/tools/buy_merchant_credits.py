@@ -62,7 +62,7 @@ class InsumerBuyMerchantCreditsTool(BaseTool):
         update_wallet: bool = False,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
-        """Buy merchant credits."""
+        """Add credits to the store owner's API key."""
         result = self.api_wrapper.buy_merchant_credits(
             merchant_id=id,
             tx_hash=tx_hash,

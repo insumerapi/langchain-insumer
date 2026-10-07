@@ -40,7 +40,7 @@ class InsumerUcpDiscountTool(BaseTool):
 
     Returns title, extension field, and applied array compatible with UCP
     checkout flows. Same on-chain verification as insumer_verify, wrapped
-    in UCP format. Costs 1 merchant credit.
+    in UCP format. Costs 1 credit from the API key that owns the store (a 0% result is free).
     """
 
     name: str = "insumer_ucp_discount"
@@ -48,7 +48,7 @@ class InsumerUcpDiscountTool(BaseTool):
         "Check token-holder discount eligibility in Google Universal Commerce "
         "Protocol (UCP) format. Returns title, extension field, and applied array. "
         "Same verification as insumer_verify, in UCP format. "
-        "Costs 1 merchant credit."
+        "Costs 1 credit from the API key that owns the store (a 0% result is free)."
     )
     args_schema: Type[UcpDiscountSchema] = UcpDiscountSchema
 

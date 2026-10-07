@@ -47,9 +47,10 @@ class WalletTrustSchema(BaseModel):
             "Costs 6 credits instead of 3. Proofs cover EVM token checks on "
             "27 of the 31 EVM chains (not ZKsync Era, Sei, Viction or XDC "
             "Network); rows whose balance is computed rather than stored "
-            "(Aave aTokens, BUIDL), NFT rows and non-EVM rows are declined "
-            "with a reason, and the premium is refunded whenever no proof is "
-            "delivered."
+            "(Aave aTokens, BUIDL), NFT rows, non-EVM rows and account rows "
+            "(proof.available false, with a reason pointing at /v1/attest) are "
+            "declined with a reason, and the premium is refunded whenever no "
+            "proof is delivered."
         ),
     )
 
@@ -57,20 +58,25 @@ class WalletTrustSchema(BaseModel):
 class InsumerWalletTrustTool(BaseTool):
     """Generate a structured, ECDSA-signed wallet trust fact profile.
 
-    Checks 145 curated conditions across 27 chains in 9 dimensions: stablecoins
+    Checks 155 curated conditions across 27 chains in 10 dimensions: stablecoins
     (USDC, USDT, OUSD, PYUSD, USDG, USD1, RLUSD, USDS, DAI, EURC; 52 checks on
     23 EVM chains), governance tokens (8), NFTs (3), staking positions (5),
     institutional stablecoins (8, across Ethereum, Solana, XRPL, Stellar and
     Sui), tokenized treasuries (16: BUIDL, USYC, OUSG, USTB, USDY), stablecoin
     deposits (39: Aave v3 aUSDC/aUSDT, sUSDS, sDAI, listed Morpho USDC vaults),
-    wrapped bitcoin (12: cbBTC, WBTC, tBTC) and names (2: ENS .eth, Basenames).
-    Up to 166 checks across 29 chains in 13 dimensions with the optional
-    Solana, XRPL, Bitcoin and Tron wallets; Stellar and Sui wallets add no
-    dimension but let their rows inside the base dimensions evaluate. Every
-    check is a presence check. Checks whose chain wallet was not supplied carry
-    evaluated: false and are counted in notEvaluatedCount, never as passed or
-    failed. The signed conditionSetVersion (currently "2026-10") names the
-    check list that was run; log it, never reject on it.
+    wrapped bitcoin (12: cbBTC, WBTC, tBTC), names (2: ENS .eth, Basenames) and
+    account (10: contract code or EIP-7702 delegation present at the wallet
+    address on Ethereum, Base, Arbitrum, Optimism and Polygon; two rows per
+    chain, exclusive, a plain key reads false on both; which contract is never
+    named). Up to 176 checks across 29 chains in 14 dimensions with the
+    optional Solana, XRPL, Bitcoin and Tron wallets; Stellar and Sui wallets
+    add no dimension but let their rows inside the base dimensions evaluate.
+    Every check is a presence check. Checks whose chain wallet was not supplied
+    carry evaluated: false and are counted in notEvaluatedCount, never as
+    passed or failed. The signed conditionSetVersion (currently "2026-10-08")
+    names the check list that was run; log it, never reject on it. Dimensions
+    come back in a fixed order: the base dimensions in the order above, then
+    whichever of solana, xrpl, bitcoin and tron were switched on, in that order.
     Returns per-dimension pass/fail counts and overall summary. No score, no
     opinion, just cryptographically verifiable evidence. Costs 3 credits
     (standard) or 6 credits (with proof="merkle").
@@ -78,19 +84,24 @@ class InsumerWalletTrustTool(BaseTool):
 
     name: str = "insumer_wallet_trust"
     description: str = (
-        "Generate a wallet trust fact profile. 145 base checks across 27 chains "
-        "in 9 dimensions: stablecoins (USDC, USDT, OUSD, PYUSD, USDG, USD1, "
+        "Generate a wallet trust fact profile. 155 base checks across 27 chains "
+        "in 10 dimensions: stablecoins (USDC, USDT, OUSD, PYUSD, USDG, USD1, "
         "RLUSD, USDS, DAI, EURC), governance tokens (UNI, AAVE, ARB, OP, ENS, "
         "LDO, SKY, COMP), NFTs (BAYC, Pudgy Penguins, Wrapped CryptoPunks), "
         "staking positions (stETH, rETH, cbETH, wstETH, weETH), institutional "
         "stablecoins, tokenized treasuries (BUIDL, USYC, OUSG, USTB, USDY), "
         "stablecoin deposits (Aave v3, sUSDS, sDAI, Morpho USDC vaults), wrapped "
-        "bitcoin (cbBTC, WBTC, tBTC) and names (ENS, Basenames). Up to 166 "
-        "checks across 29 chains in 13 dimensions with optional Solana, XRPL, "
+        "bitcoin (cbBTC, WBTC, tBTC), names (ENS, Basenames) and account "
+        "(contract code or EIP-7702 delegation present at the wallet address on "
+        "Ethereum, Base, Arbitrum, Optimism and Polygon; a plain key reads false "
+        "on both rows of a chain). Up to 176 "
+        "checks across 29 chains in 14 dimensions with optional Solana, XRPL, "
         "Bitcoin and Tron wallets; Stellar and Sui wallets switch on rows inside "
         "the base dimensions. Every check is a presence check; a check whose "
         "chain wallet was not supplied is reported as evaluated: false, not as "
-        "a failure. Returns per-dimension pass/fail counts and ECDSA-signed "
+        'a failure. The signed conditionSetVersion (currently "2026-10-08") '
+        "names the check list run; dimensions come back in a fixed order. "
+        "Returns per-dimension pass/fail counts and ECDSA-signed "
         "evidence, no score, just facts. Use this when you need a comprehensive wallet "
         'assessment without specifying individual conditions. Costs 3 credits '
         '(standard) or 6 credits (proof="merkle").'

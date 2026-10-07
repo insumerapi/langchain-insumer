@@ -166,6 +166,31 @@ result = api.wallet_trust(
 
 XRPL attestation results include `ledgerIndex` and `ledgerHash` (validated ledger hash) instead of `blockNumber`/`blockTimestamp`. Trust line token results also include `trustLineState: { frozen: bool }` — a frozen trust line causes `met: false` regardless of balance. Native XRP results include `ledgerHash` but not `trustLineState`.
 
+### Account code state (plain key, EIP-7702 delegation, contract)
+
+The `account_code` condition type asks which code state the wallet address itself is in on an EVM chain at the anchored block. `expect` is required: `"none"` (no code: a plain key account), `"eip7702"` (the EIP-7702 delegation designator: a key that has delegated execution to a contract) or `"contract"` (any other code: a smart-contract wallet, a protocol, a token). The three states are exclusive on a chain. With `expect: "eip7702"` an optional `delegate` (an EVM address) makes the condition met only when the designator points at it; `delegate` with any other `expect` is a 400, and a non-EVM `chainId` is a 400. The answer is `met` only: the code and the delegation target are never returned, in any format or mode.
+
+```python
+# vitalik.eth is EIP-7702-delegated on Base, so this condition is met
+result = api.attest(
+    wallet="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    conditions=[{"type": "account_code", "chainId": 8453, "expect": "eip7702"}],
+)
+```
+
+The result for that condition:
+
+```json
+{
+  "condition": 0,
+  "met": true,
+  "evaluatedCondition": { "type": "account_code", "chainId": 8453, "expect": "eip7702", "operator": "code_state" },
+  "conditionHash": "0x6c5752bfbfcfd6ba36c9cda6c74df567f0e0414da6b7a3176061ba734aeadc46"
+}
+```
+
+A supplied `delegate` is echoed (lowercase) inside the signed `evaluatedCondition`, since it is the caller's input. 1 credit, 30-minute expiry, `format="jwt"` works, and with `proof="merkle"` the proof is an EIP-1186 account proof (`subject: "account_code"`, fields `blockNumber`, `nonce`, `balance`, `storageHash`, `codeHash`, `accountProof`); `codeHash` is the proven value, never the code.
+
 ## Verify the Response
 
 The attestation is ECDSA-signed. Your application should verify it before trusting it. Use [insumer-verify](https://pypi.org/project/insumer-verify/), which runs every check the specification defines and passes the same 27 published test vectors as the npm package:
@@ -274,9 +299,9 @@ print(attest.run({
 
 | Tool | Description | Credits |
 |------|-------------|---------|
-| `InsumerAttestTool` | Verify on-chain conditions (token balances, NFT ownership, EAS attestations, Farcaster identity). Optional `proof="merkle"` for EIP-1186 Merkle proofs. | 1/call (2 with merkle) |
+| `InsumerAttestTool` | Verify on-chain conditions (token balances, NFT ownership, EAS attestations, Farcaster identity, view calls, ratios, ERC-8004 registration, ERC-7710 delegations, account code state: `account_code` with `expect` none / eip7702 / contract and optional `delegate`). Optional `proof="merkle"` for EIP-1186 Merkle proofs. | 1/call (2 with merkle) |
 | `InsumerComplianceTemplatesTool` | List available EAS compliance templates (Coinbase Verifications on Base, Gitcoin Passport on Optimism). | Free |
-| `InsumerWalletTrustTool` | Generate wallet trust fact profile (145 base checks across 27 chains in 9 dimensions: stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names; up to 166 across 29 chains in 13 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets; Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check; the signed `conditionSetVersion` (currently `2026-10`) names the check list run. | 3/call (6 with merkle) |
+| `InsumerWalletTrustTool` | Generate wallet trust fact profile (155 base checks across 27 chains in 10 dimensions: stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names, account (contract code or EIP-7702 delegation present on Ethereum, Base, Arbitrum, Optimism, Polygon); up to 176 across 29 chains in 14 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets; Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check; the signed `conditionSetVersion` (currently `2026-10-08`) names the check list run; dimensions come back in a fixed order. | 3/call (6 with merkle) |
 | `InsumerBatchWalletTrustTool` | Batch trust profiles for up to 10 wallets. 5-8x faster. Each wallet can include optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet` and `suiWallet`. The model reads a per-wallet summary; the signed profiles are the tool result's artifact (see [Batch trust: summary and signed profiles](#batch-trust-summary-and-signed-profiles)). | 3/wallet (6 with merkle) |
 | `InsumerVerifyTool` | Create signed discount code (INSR-XXXXX), valid 30 min. | 1/call |
 | `InsumerConfirmPaymentTool` | Confirm USDC payment for a discount code. | Free |
@@ -298,13 +323,13 @@ print(attest.run({
 | `InsumerBuyKeyTool` | Buy a new API key with USDC, USDT, or BTC (no auth required). Wallet becomes identity. | -- |
 | `InsumerCreditsTool` | Check API key credit balance and tier. | Free |
 | `InsumerBuyCreditsTool` | Buy API key credits with USDC, USDT, or BTC (25 credits/$1). | -- |
-| `InsumerBuyMerchantCreditsTool` | Buy merchant credits with USDC, USDT, or BTC (25 credits/$1). | -- |
+| `InsumerBuyMerchantCreditsTool` | Add credits to the store owner's API key with USDC, USDT, or BTC (25 credits/$1). | -- |
 
 ### Merchant Onboarding
 
 | Tool | Description | Credits |
 |------|-------------|---------|
-| `InsumerCreateMerchantTool` | Create a new merchant (100 free credits). | Free |
+| `InsumerCreateMerchantTool` | Create a new merchant (codes draw on the owner key's credits). | Free |
 | `InsumerMerchantStatusTool` | Get private merchant details (owner only). | Free |
 | `InsumerConfigureTokensTool` | Configure token discount tiers (max 8 tokens). | Free |
 | `InsumerConfigureNftsTool` | Configure NFT collection discounts (max 4). | Free |
@@ -330,8 +355,30 @@ print(attest.run({
 
 A trust profile lists every check, tens of thousands of characters per wallet, so ten full profiles are more than a model can read from one tool result. `InsumerBatchWalletTrustTool` therefore returns content and an artifact (`response_format="content_and_artifact"`):
 
-- **Content** (what the model reads): a summary per wallet with the profile ID, the held / not held / not evaluated counts, and the checks held in each dimension.
+- **Content** (what the model reads): a summary per wallet with the profile ID, the held / not held / not evaluated counts, and the checks held in each dimension (present, for the `account` dimension). Dimensions print in a fixed order for every wallet: `stablecoins, governance, nfts, staking, institutional_stablecoins, tokenized_treasuries, stablecoin_deposits, wrapped_bitcoin, names, account`, then `solana, xrpl, bitcoin, tron` when switched on.
 - **Artifact**: the complete API response with every signed profile, unchanged, ready for [`insumer-verify`](https://pypi.org/project/insumer-verify/).
+
+The first wallet of the spec's batch example (three wallets, this one with a Solana wallet) summarizes as:
+
+```
+Batch trust profiles: 3 requested, 3 signed, 0 not signed. Credits charged: 9.
+This text is a summary for reading. Each signed profile (trust object, sig and kid, pqSig and pqKid) is in this tool result's artifact, unchanged, and verifies against the InsumerAPI JWKS. Profiles cannot be fetched again, so a new call with detail="full" signs fresh profiles and is charged again.
+Every check is held or not held (present or not present for the account dimension: contract code or an EIP-7702 delegation at the address), never a balance and never the code. The counts are facts about the wallet, not a score.
+
+1. 0x1601843c5E9bC251A3272907010AFa41Fa18347E · TRST-74167 · check set 2026-10-08 · expires 2026-10-07T22:23:03.720Z · signed (insumer-trust-v2 + insumer-trust-pq1)
+   169 checks: 17 held, 147 not held, 5 not evaluated
+   stablecoins: 6 of 52 held: USDC on Base, PYUSD on Ethereum, RLUSD on Ethereum, USDG on Ethereum, USDS on Base, USDS on Ethereum
+   governance: 0 of 8 held
+   nfts: 0 of 3 held
+   staking: 0 of 5 held
+   institutional_stablecoins: 0 of 8 held (4 not evaluated)
+   tokenized_treasuries: 0 of 16 held (1 not evaluated)
+   stablecoin_deposits: 5 of 39 held: sUSDS on Base, sUSDS on Ethereum, aEthUSDC on Ethereum, aEthUSDT on Ethereum, Spark Blue Chip USDC (Morpho) on Ethereum
+   wrapped_bitcoin: 0 of 12 held
+   names: 0 of 2 held
+   account: 5 of 10 present: Contract code on Ethereum, Contract code on Base, Contract code on Arbitrum, Contract code on Optimism, Contract code on Polygon
+   solana: 1 of 14 held: PYUSD on Solana
+```
 
 When an agent calls the tool, the artifact is on the `ToolMessage`:
 
@@ -461,7 +508,9 @@ result = api.attest(
     ],
 )
 
-# Each result includes a proof object
+# Each result includes a proof object (for an account_code condition it is an
+# account proof: subject "account_code" with blockNumber, nonce, balance,
+# storageHash, codeHash and accountProof, and no storageProof or mappingSlot)
 for r in result["data"]["attestation"]["results"]:
     proof = r.get("proof", {})
     if proof.get("available"):

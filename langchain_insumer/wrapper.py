@@ -215,15 +215,31 @@ class InsumerAPIWrapper(BaseModel):
         """Create a privacy-preserving on-chain verification.
 
         Verifies 1-10 conditions (token balances, NFT ownership, EAS
-        attestations) and returns a cryptographically signed true/false result.
-        Never exposes actual balances. Costs 1 verification credit (standard)
-        or 2 credits (with proof="merkle").
+        attestations, account code state and more) and returns a
+        cryptographically signed true/false result. Never exposes actual
+        balances, code or delegation targets. Costs 1 verification credit
+        (standard) or 2 credits (with proof="merkle").
 
         Args:
             conditions: List of condition dicts, each with:
                 - type: "token_balance", "nft_ownership", "eas_attestation",
                   "farcaster_id", "evm_view_call", "ratio_to_amount", "ratio_to_supply",
-                  "erc8004_agent", or "erc7710_delegation"
+                  "erc8004_agent", "erc7710_delegation", or "account_code"
+                - expect: for account_code (EVM chains only; a non-EVM chainId is
+                  a 400; no contractAddress). Required. The code state the wallet
+                  address itself must be in at the anchored block: "none" (no
+                  code: a plain key account), "eip7702" (the EIP-7702 delegation
+                  designator: a key that has delegated execution to a contract)
+                  or "contract" (any other code: a smart-contract wallet, a
+                  protocol, a token). The three states are exclusive on a chain.
+                  The answer is ``met`` only: the code and the delegation target
+                  are never returned, in any format or mode. The signed
+                  ``evaluatedCondition`` is ``{type, chainId, expect, operator:
+                  "code_state"}``.
+                - delegate: optional, for account_code with expect "eip7702"
+                  only (a 400 with any other expect). An EVM address; met iff
+                  the designator points at it. Echoed (lowercase) inside the
+                  signed ``evaluatedCondition`` as the caller's input.
                 - contractAddress: Token/NFT contract address (for token_balance/nft_ownership/ratio_*).
                   "native" is for token_balance and ratio_to_amount only. nft_ownership
                   needs the NFT contract address (0x + 40 hex on EVM); "native" there is a 400.
@@ -277,10 +293,22 @@ class InsumerAPIWrapper(BaseModel):
             sui_wallet: Sui wallet address (0x + 64 hex chars). For verifying
                 SUI or Sui-native tokens (USDC). Use chainId "sui" with the coin
                 type as contractAddress ("0x2::sui::SUI" for native SUI, not "native").
-            proof: Set to "merkle" for EIP-1186 Merkle storage proofs.
-                Available for token_balance conditions on 27 of the 31 EVM chains
-                (not ZKsync Era, Sei, Viction or XDC Network).
-                Costs 2 credits. Reveals raw balance to the caller.
+            proof: Set to "merkle" for EIP-1186 Merkle proofs: a storage proof
+                of the balance slot for a token_balance or ratio_to_amount
+                condition (an account proof, ``subject: "account_balance"``,
+                when contractAddress is "native"), a revocation-slot proof
+                (``subject: "delegation_revocation"``) for an erc7710_delegation
+                condition, an account proof (``subject:
+                "account_code"``; fields blockNumber, nonce, balance,
+                storageHash, codeHash, accountProof) for an account_code
+                condition, on 27 of the 31 EVM chains (not ZKsync Era, Sei,
+                Viction or XDC Network). Costs 2 credits, refunded to 1 when no
+                proof is delivered. A storage proof reveals the raw balance to
+                the caller; an account proof carries ``codeHash``, never the
+                code (keccak256 of empty code means no code; keccak256 of
+                0xef0100 followed by the 20-byte target means an EIP-7702
+                delegation to that target, checkable only with the delegate
+                the verifier supplies; anything else means contract code).
             format: Set to "jwt" to include a Wallet Auth by InsumerAPI token
                 (ES256-signed JWT) in the response, with its post-quantum
                 sibling ``pqJwt`` beside it. Verifiable by any standard
@@ -305,9 +333,11 @@ class InsumerAPIWrapper(BaseModel):
             Stellar non-native results surface ``assetCode`` in ``evaluatedCondition``.
             When format="jwt", response includes a ``jwt`` field with a
             Wallet Auth by InsumerAPI token (ES256-signed JWT).
-            When proof="merkle", each result includes a proof object with
-            accountProof, storageProof, storageHash, blockNumber, and
-            mappingSlot fields.
+            When proof="merkle", each result includes a proof object: for
+            token_balance, accountProof, storageProof, storageHash,
+            blockNumber and mappingSlot; for account_code, subject
+            "account_code" with blockNumber, nonce, balance, storageHash,
+            codeHash and accountProof.
         """
         # v2 keys require agent-supplied quantities as decimal strings (preserving full
         # precision, no float in signed bytes); v1 keys accept either. Coerce numbers to
@@ -366,7 +396,7 @@ class InsumerAPIWrapper(BaseModel):
     ) -> dict:
         """Generate a structured wallet trust fact profile.
 
-        Checks 145 base conditions across 27 chains in 9 dimensions: stablecoins
+        Checks 155 base conditions across 27 chains in 10 dimensions: stablecoins
         (52: USDC, USDT, OUSD, PYUSD, USDG, USD1, RLUSD, USDS, DAI, EURC on 23
         EVM chains), governance tokens (8: UNI, AAVE, ARB, OP, ENS, LDO, SKY,
         COMP), NFTs (3), staking positions (5: stETH, rETH, cbETH, wstETH,
@@ -374,16 +404,22 @@ class InsumerAPIWrapper(BaseModel):
         Solana, EURCV on XRPL, USDC and BENJI on Stellar, USDC on Sui),
         tokenized treasuries (16: BUIDL, USYC, OUSG, USTB, USDY), stablecoin
         deposits (39: Aave v3 aUSDC/aUSDT, sUSDS, sDAI, listed Morpho USDC
-        vaults), wrapped bitcoin (12: cbBTC, WBTC, tBTC) and names (2: ENS
-        .eth, Basenames). Up to 166 checks across 29 chains in 13 dimensions
-        with the optional Solana (14), XRPL (3), Bitcoin (1) and Tron (3)
-        wallets; Stellar and Sui wallets add no dimension but let their rows
-        inside the base dimensions evaluate. Every check is a presence check. A
-        check whose chain wallet was not supplied stays in the signed profile
-        with ``evaluated: false`` and ``reason: "wallet_not_provided"``, counted
-        in ``notEvaluatedCount`` rather than passed or failed. The signed
-        ``conditionSetVersion`` (currently ``"2026-10"``) names the check list
-        that was run; log it, never reject on it. Returns per-dimension
+        vaults), wrapped bitcoin (12: cbBTC, WBTC, tBTC), names (2: ENS
+        .eth, Basenames) and account (10: contract code or EIP-7702 delegation
+        present at the wallet address on Ethereum, Base, Arbitrum, Optimism and
+        Polygon; two rows per chain, exclusive, a plain key reads false on both;
+        which contract is never named). Up to 176 checks across 29 chains in 14
+        dimensions with the optional Solana (14), XRPL (3), Bitcoin (1) and
+        Tron (3) wallets; Stellar and Sui wallets add no dimension but let
+        their rows inside the base dimensions evaluate. Every check is a
+        presence check. A check whose chain wallet was not supplied stays in
+        the signed profile with ``evaluated: false`` and ``reason:
+        "wallet_not_provided"``, counted in ``notEvaluatedCount`` rather than
+        passed or failed. The signed ``conditionSetVersion`` (currently
+        ``"2026-10-08"``) names the check list that was run; log it, never
+        reject on it. Dimensions come back in a fixed order: the base
+        dimensions in the order above, then whichever of solana, xrpl, bitcoin
+        and tron were switched on, in that order. Returns per-dimension
         pass/fail counts and an overall summary.
         No score, just cryptographically verifiable evidence. Costs 3 credits
         (standard) or 6 credits (with proof="merkle").
@@ -410,9 +446,11 @@ class InsumerAPIWrapper(BaseModel):
             proof: Set to "merkle" for EIP-1186 Merkle storage proofs on EVM
                 token checks, on 27 of the 31 EVM chains (not ZKsync Era, Sei,
                 Viction or XDC Network). Rows whose balance is computed rather
-                than stored (Aave aTokens, BUIDL), NFT rows and non-EVM rows are
-                declined with a reason; the premium is refunded whenever no
-                proof is delivered. Costs 6 credits.
+                than stored (Aave aTokens, BUIDL), NFT rows, non-EVM rows and
+                account rows (``proof.available: false`` with a reason pointing
+                at ``/v1/attest``, where an account_code condition carries an
+                account proof) are declined with a reason; the premium is
+                refunded whenever no proof is delivered. Costs 6 credits.
 
         Returns:
             API response with trust profile, ECDSA signature (``sig``),
@@ -446,9 +484,11 @@ class InsumerAPIWrapper(BaseModel):
 
         Shared block fetches make this 5-8x faster than sequential
         ``wallet_trust()`` calls. Each wallet gets an independently
-        ECDSA-signed profile. Supports partial success — failed wallets get
-        error entries while successful ones return full profiles. Credits
-        only charged for successful profiles.
+        ECDSA-signed profile with the same dimensions as ``wallet_trust()``
+        (155 base checks in 10 dimensions, up to 176 in 14), in the same fixed
+        dimension order for every wallet in the batch. Supports partial
+        success: failed wallets get error entries while successful ones return
+        full profiles. Credits only charged for successful profiles.
 
         Args:
             wallets: List of 1-10 dicts, each with ``wallet`` (EVM address,
@@ -641,7 +681,7 @@ class InsumerAPIWrapper(BaseModel):
         company_id: str,
         location: Optional[str] = None,
     ) -> dict:
-        """Create a new merchant. Receives 100 free verification credits. Max 10 per API key."""
+        """Create a new merchant. Discount codes draw on the credits of the API key that owns it. Max 10 per API key."""
         body: dict[str, Any] = {
             "companyName": company_name,
             "companyId": company_id,
@@ -734,7 +774,7 @@ class InsumerAPIWrapper(BaseModel):
 
         Returns coupon objects, applied/rejected arrays, and per-item allocations
         compatible with ACP checkout flows. Same verification as ``verify()``,
-        wrapped in ACP format. Costs 1 merchant credit.
+        wrapped in ACP format. Costs 1 credit from the API key that owns the store (a 0% result is free).
 
         Args:
             merchant_id: Merchant identifier.
@@ -785,7 +825,7 @@ class InsumerAPIWrapper(BaseModel):
 
         Returns title, extension field, and applied array compatible with UCP
         checkout flows. Same verification as ``verify()``, wrapped in UCP format.
-        Costs 1 merchant credit.
+        Costs 1 credit from the API key that owns the store (a 0% result is free).
 
         Args:
             merchant_id: Merchant identifier.

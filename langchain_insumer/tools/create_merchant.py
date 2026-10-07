@@ -34,7 +34,7 @@ class CreateMerchantSchema(BaseModel):
 class InsumerCreateMerchantTool(BaseTool):
     """Create a new merchant on InsumerAPI.
 
-    Each new merchant receives 100 free verification credits. Maximum 10
+    A merchant has no balance of its own: codes draw on the credits of the API key that owns it. Maximum 10
     merchants per API key. After creation, use ``insumer_configure_tokens``,
     ``insumer_configure_nfts``, and ``insumer_publish_directory`` to complete
     the onboarding flow.
@@ -43,7 +43,7 @@ class InsumerCreateMerchantTool(BaseTool):
     name: str = "insumer_create_merchant"
     description: str = (
         "Create a new merchant on InsumerAPI. Provide a company name and "
-        "unique ID. The merchant receives 100 free verification credits. "
+        "unique ID. Discount codes draw on the credits of the API key that owns the merchant. "
         "Max 10 merchants per API key. After creation, configure tokens "
         "and NFTs, then publish to the directory."
     )

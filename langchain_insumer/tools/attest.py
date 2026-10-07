@@ -44,10 +44,14 @@ class AttestSchema(BaseModel):
     proof: Optional[str] = Field(
         default=None,
         description=(
-            'Set to "merkle" to include EIP-1186 Merkle storage proofs in results. '
-            "Proofs available for token_balance conditions on 27 of the 31 EVM chains "
+            'Set to "merkle" to include EIP-1186 Merkle proofs in results: a storage proof '
+            "of the balance slot for token_balance and ratio_to_amount conditions (an account proof, "
+            "subject account_balance, when contractAddress is native), an account proof (subject account_code) for "
+            "account_code conditions, and a revocation-slot proof (subject delegation_revocation) for "
+            "erc7710_delegation conditions, on 27 of the 31 EVM chains "
             "(not ZKsync Era, Sei, Viction or XDC Network). "
-            "Costs 2 credits instead of 1. Reveals raw balance to caller."
+            "Costs 2 credits instead of 1 (refunded to 1 when no proof is delivered). "
+            "A storage proof reveals the raw balance to the caller; an account proof carries codeHash, never the code."
         ),
     )
     format: Optional[str] = Field(
@@ -62,7 +66,7 @@ class AttestSchema(BaseModel):
         description=(
             'JSON array of conditions. Each condition: {"type": "token_balance" or '
             '"nft_ownership" or "eas_attestation" or "farcaster_id" or "evm_view_call" or "ratio_to_amount" or '
-            '"ratio_to_supply" or "erc8004_agent" or "erc7710_delegation", "contractAddress": "0x...", '
+            '"ratio_to_supply" or "erc8004_agent" or "erc7710_delegation" or "account_code", "contractAddress": "0x...", '
             '"chainId": 1, "threshold": "1000", "label": "USDC >= 1000"}. '
             'threshold is a decimal string in token units (e.g. "1000", not 1000). '
             "decimals is optional. Leave it out: the token's own decimals are always read from the chain. "
@@ -79,6 +83,7 @@ class AttestSchema(BaseModel):
             'For evm_view_call (EVM chains only): add "selector" as the canonical signature of a single-address-argument view function returning bool (e.g. "hasAccess(address)"). '
             'For erc8004_agent (Base, chainId 8453): add "agentId" as a uint256 decimal string (met iff the wallet owns the agent NFT or is the registry agentWallet binding; registration is permissionless, no vetting implied). '
             'For erc7710_delegation (Base, chainId 8453, max 3 per call): add "delegationManager" (a recognized MetaMask Delegation Framework manager), "expectedDelegator" (the asserted principal), and "delegation" ({delegator, delegate, authority, caveats, salt, signature}); met iff the wallet is the delegate, the delegator matches, the EIP-712 signature verifies (EOA or ERC-1271), unrevoked at the anchored block, all caveat enforcers recognized, time windows satisfied. Spend/target/call limits are reported as declaredLimits, not simulated. Delegation attestations expire in 5 minutes. '
+            'For account_code (EVM chains only; no contractAddress): add "expect", one of "none" (no code: a plain key account), "eip7702" (the EIP-7702 delegation designator: a key that has delegated execution to a contract) or "contract" (any other code: a smart-contract wallet, a protocol, a token); met iff the wallet address itself is in that code state at the anchored block (the three states are exclusive on a chain). Optional "delegate" (an EVM address, only with expect "eip7702"; a 400 with any other expect): met iff the designator points at it. The answer is met only: the code and the delegation target are never returned, in any format or mode; a supplied delegate is echoed inside the signed evaluatedCondition. With proof="merkle" the proof is an EIP-1186 account proof with subject "account_code" (blockNumber, nonce, balance, storageHash, codeHash, accountProof). Example: {"type": "account_code", "chainId": 8453, "expect": "eip7702"}. '
             'currency: XRPL trust line currency code (e.g. "RLUSD"); required for XRPL trust line tokens (contractAddress is the issuer r-address). Codes are case-sensitive: send the code exactly as the issuer created it and never change its letter case. To check XRP itself use contractAddress "native" with no currency; "XRP" is not a trust line currency. '
             "taxon: XRPL NFToken taxon filter (optional): a whole number from 0 to 4294967295. "
             'assetCode: Stellar trustline asset code (e.g. "USDC", "BENJI"); required for Stellar non-native tokens. '
@@ -92,9 +97,12 @@ class AttestSchema(BaseModel):
 
 
 class InsumerAttestTool(BaseTool):
-    """Verify on-chain token balances, NFT ownership, EAS attestations, or Farcaster identity.
+    """Verify on-chain token balances, NFT ownership, EAS attestations, Farcaster
+    identity, view calls, ratios, ERC-8004 registration, ERC-7710 delegations, or
+    the account code state (plain key, EIP-7702 delegation, contract code).
 
-    Returns only true/false per condition -- never exposes actual balances.
+    Returns only true/false per condition -- never exposes actual balances, code
+    or delegation targets.
     The response includes an ECDSA P-256 signature (sig, kid) and, since
     September 2026, an ML-DSA-65 post-quantum companion (pqSig, pqKid).
     Costs 1 verification credit per call, or 2 credits with proof="merkle".
@@ -106,12 +114,14 @@ class InsumerAttestTool(BaseTool):
     description: str = (
         "Verify on-chain conditions (token balances, NFT ownership, EAS attestations, "
         "Farcaster identity, arbitrary boolean view calls, supply/amount ratios, ERC-8004 "
-        "agent registration, ERC-7710 delegation validity) across 37 blockchains. Returns a cryptographically signed "
-        "true/false verification without exposing actual wallet balances. Use this when "
+        "agent registration, ERC-7710 delegation validity, account code state: plain key, "
+        "EIP-7702 delegation or contract code) across 37 blockchains. Returns a cryptographically signed "
+        "true/false verification without exposing actual wallet balances, code or delegation targets. Use this when "
         "you need to check if a wallet holds a specific token or NFT, has an EAS "
-        "attestation (Coinbase Verifications, Gitcoin Passport), or is registered on "
-        "Farcaster. Costs 1 verification credit. "
-        'Pass proof="merkle" for EIP-1186 Merkle storage proofs (2 credits). '
+        "attestation (Coinbase Verifications, Gitcoin Passport), is registered on "
+        "Farcaster, or is a plain key, an EIP-7702-delegated key or a contract on an EVM chain "
+        '(type "account_code" with "expect"). Costs 1 verification credit. '
+        'Pass proof="merkle" for EIP-1186 Merkle proofs (2 credits). '
         "Use insumer_compliance_templates to list available EAS templates."
     )
     args_schema: Type[AttestSchema] = AttestSchema

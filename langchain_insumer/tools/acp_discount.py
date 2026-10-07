@@ -40,7 +40,7 @@ class InsumerAcpDiscountTool(BaseTool):
 
     Returns coupon objects, applied/rejected arrays, and per-item allocations
     compatible with ACP checkout flows. Same on-chain verification as
-    insumer_verify, wrapped in ACP format. Costs 1 merchant credit.
+    insumer_verify, wrapped in ACP format. Costs 1 credit from the API key that owns the store (a 0% result is free).
     """
 
     name: str = "insumer_acp_discount"
@@ -48,7 +48,7 @@ class InsumerAcpDiscountTool(BaseTool):
         "Check token-holder discount eligibility in OpenAI/Stripe Agentic Commerce "
         "Protocol (ACP) format. Returns coupon objects, applied/rejected arrays, and "
         "per-item allocations. Same verification as insumer_verify, in ACP format. "
-        "Costs 1 merchant credit."
+        "Costs 1 credit from the API key that owns the store (a 0% result is free)."
     )
     args_schema: Type[AcpDiscountSchema] = AcpDiscountSchema
 

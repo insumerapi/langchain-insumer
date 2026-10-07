@@ -4,11 +4,37 @@ A batch trust response carries up to ten complete signed profiles, tens of
 thousands of characters each, which is more than a model can read from one
 tool result. summarize_batch_trust turns the response into a short text for
 the model: per wallet, the profile ID, the held / not held / not evaluated
-counts, and the checks held in each dimension. The signed profiles are not
-changed; the tool returns them unchanged as the tool message's artifact.
+counts, and the checks held in each dimension (present, for the account
+dimension, whose checks are code states rather than holdings). Dimensions are
+printed in a fixed order, the API's own, whatever order they arrive in, so two
+wallets in one batch always read alike. The signed profiles are not changed;
+the tool returns them unchanged as the tool message's artifact.
 """
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
+
+# The API's dimension order: the base dimensions, then the optional ones that
+# were switched on. Any name outside this list follows, alphabetically.
+DIMENSION_ORDER = (
+    "stablecoins",
+    "governance",
+    "nfts",
+    "staking",
+    "institutional_stablecoins",
+    "tokenized_treasuries",
+    "stablecoin_deposits",
+    "wrapped_bitcoin",
+    "names",
+    "account",
+    "solana",
+    "xrpl",
+    "bitcoin",
+    "tron",
+)
+
+# Dimensions whose checks are states of the account, not holdings: the summary
+# says "present" for them, "held" for every other dimension.
+_PRESENT_DIMENSIONS = frozenset({"account"})
 
 
 def _str(value: Any) -> str:
@@ -30,17 +56,26 @@ def _paid_per_call(meta: dict) -> bool:
     return "creditsRemaining" in meta and meta["creditsRemaining"] is None and meta.get("creditsCharged") == 0
 
 
+def _ordered_dimensions(dims: Dict[str, Any]) -> List[str]:
+    """Dimension names in the fixed order, regardless of the order received."""
+    rank = {name: i for i, name in enumerate(DIMENSION_ORDER)}
+    known = [name for name in dims if name in rank]
+    other = [name for name in dims if name not in rank]
+    return sorted(known, key=rank.__getitem__) + sorted(other)
+
+
 def _dimension_line(name: str, dim: dict) -> str:
     raw = dim.get("checks")
     checks = [c for c in raw if isinstance(c, dict)] if isinstance(raw, list) else []
-    held = [_str(c.get("label")) for c in checks if c.get("met") is True]
+    met = [_str(c.get("label")) for c in checks if c.get("met") is True]
     not_evaluated = sum(1 for c in checks if c.get("evaluated") is False)
     total = dim.get("total") if isinstance(dim.get("total"), int) and not isinstance(dim.get("total"), bool) else len(checks)
-    line = f"   {name}: {len(held)} of {total} held"
+    word = "present" if name in _PRESENT_DIMENSIONS else "held"
+    line = f"   {name}: {len(met)} of {total} {word}"
     if not_evaluated > 0:
         line += f" ({not_evaluated} not evaluated)"
-    if held:
-        line += ": " + ", ".join(held)
+    if met:
+        line += ": " + ", ".join(met)
     return line
 
 
@@ -57,7 +92,8 @@ def _profile_lines(index: int, entry: dict, trust: dict) -> List[str]:
         f"   {_str(summary.get('totalChecks'))} checks: {_str(summary.get('totalPassed'))} held, {_str(summary.get('totalFailed'))} not held, {_str(summary.get('totalNotEvaluated'))} not evaluated",
     ]
     dims = trust.get("dimensions") if isinstance(trust.get("dimensions"), dict) else {}
-    for name, dim in dims.items():
+    for name in _ordered_dimensions(dims):
+        dim = dims[name]
         if isinstance(dim, dict):
             lines.append(_dimension_line(name, dim))
     return lines
@@ -91,8 +127,10 @@ def summarize_batch_trust(response: Any) -> Optional[str]:
         return value if isinstance(value, int) and not isinstance(value, bool) else fallback
 
     requested = count("requested", len(results))
-    succeeded = count("succeeded", signed_count)
-    failed = count("failed", len(results) - signed_count)
+    # Signed means a profile with a signature and a kid, whatever the API's own success
+    # count says: a profile returned without them is not counted as signed.
+    succeeded = signed_count
+    failed = len(results) - signed_count
     per_call = _paid_per_call(meta)
     charge = (
         "Paid per call: the payment covered every wallet requested."
@@ -102,7 +140,7 @@ def summarize_batch_trust(response: Any) -> Optional[str]:
     out = [
         f"Batch trust profiles: {requested} requested, {succeeded} signed, {failed} not signed. {charge}",
         "This text is a summary for reading. Each signed profile (trust object, sig and kid, pqSig and pqKid) is in this tool result's artifact, unchanged, and verifies against the InsumerAPI JWKS. Profiles cannot be fetched again, so a new call with detail=\"full\" signs fresh profiles and is charged again.",
-        "Every check is held or not held, never a balance. The counts are facts about the wallet, not a score.",
+        "Every check is held or not held (present or not present for the account dimension: contract code or an EIP-7702 delegation at the address), never a balance and never the code. The counts are facts about the wallet, not a score.",
         "",
     ]
     for i, entry in enumerate(results, start=1):

@@ -33,7 +33,7 @@ class InsumerVerifyTool(BaseTool):
 
     Returns tier and discount percentage -- never raw balance amounts.
     The code (INSR-XXXXX) is valid for 30 minutes and can be redeemed
-    at the merchant's point of sale. Costs 1 merchant credit.
+    at the merchant's point of sale. Costs 1 credit from the API key that owns the store (a 0% result is free).
     """
 
     name: str = "insumer_verify"
@@ -41,7 +41,7 @@ class InsumerVerifyTool(BaseTool):
         "Create a signed discount verification code (INSR-XXXXX) for a wallet "
         "at a specific merchant. Returns tier and discount percentage -- never "
         "raw balance amounts. The code is valid for 30 minutes and includes "
-        "an ECDSA signature. Costs 1 merchant credit."
+        "an ECDSA signature. Costs 1 credit from the API key that owns the store (a 0% result is free)."
     )
     args_schema: Type[VerifySchema] = VerifySchema
 

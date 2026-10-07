@@ -149,6 +149,44 @@ class TestInsumerAPIWrapper:
         sent_body = call_kwargs.kwargs.get("json", {})
         assert sent_body.get("format") == "jwt"
 
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_attest_account_code_sends_expect_and_delegate_unchanged(self, mock_post, api, mock_response):
+        """The live answer for vitalik.eth on Base (EIP-7702-delegated): met only, no code, no target."""
+        mock_response.json.return_value = {
+            "ok": True,
+            "data": {
+                "attestation": {
+                    "pass": True,
+                    "results": [{
+                        "condition": 0,
+                        "met": True,
+                        "evaluatedCondition": {"type": "account_code", "chainId": 8453, "expect": "eip7702", "operator": "code_state"},
+                        "conditionHash": "0x6c5752bfbfcfd6ba36c9cda6c74df567f0e0414da6b7a3176061ba734aeadc46",
+                    }],
+                    "passCount": 1,
+                    "failCount": 0,
+                },
+                "sig": "c2ln",
+                "kid": "insumer-attest-v2",
+            },
+            "meta": {"creditsCharged": 1},
+        }
+        mock_post.return_value = mock_response
+
+        result = api.attest(
+            wallet="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+            conditions=[
+                {"type": "account_code", "chainId": 8453, "expect": "eip7702"},
+                {"type": "account_code", "chainId": 1, "expect": "eip7702", "delegate": "0x" + "ab" * 20},
+            ],
+        )
+        sent = mock_post.call_args.kwargs["json"]["conditions"]
+        assert sent[0] == {"type": "account_code", "chainId": 8453, "expect": "eip7702"}
+        assert sent[1]["delegate"] == "0x" + "ab" * 20
+        evaluated = result["data"]["attestation"]["results"][0]["evaluatedCondition"]
+        assert evaluated["operator"] == "code_state"
+        assert "code" not in result["data"]["attestation"]["results"][0]
+
     @patch("langchain_insumer.wrapper.requests.get")
     def test_get_credits(self, mock_get, api, mock_response):
         mock_response.json.return_value = {
@@ -370,21 +408,55 @@ def _row(label, met, **extra):
     return {"label": label, "chainId": 1, "met": met, "conditionHash": "0x00", **extra}
 
 
+def _account_row(label, chain_id, expect, met):
+    return {
+        "label": label,
+        "chainId": chain_id,
+        "met": met,
+        "evaluatedCondition": {"type": "account_code", "chainId": chain_id, "expect": expect, "operator": "code_state"},
+        "conditionHash": "0x00",
+    }
+
+
+# The account dimension of the live profile for 0x1601843c5E9bC251A3272907010AFa41Fa18347E
+# (a contract on all five chains): 5 present, 5 not present, total 10.
+ACCOUNT_DIMENSION = {
+    "checks": [
+        _account_row("Contract code on Ethereum", 1, "contract", True),
+        _account_row("EIP-7702 delegation on Ethereum", 1, "eip7702", False),
+        _account_row("Contract code on Base", 8453, "contract", True),
+        _account_row("EIP-7702 delegation on Base", 8453, "eip7702", False),
+        _account_row("Contract code on Arbitrum", 42161, "contract", True),
+        _account_row("EIP-7702 delegation on Arbitrum", 42161, "eip7702", False),
+        _account_row("Contract code on Optimism", 10, "contract", True),
+        _account_row("EIP-7702 delegation on Optimism", 10, "eip7702", False),
+        _account_row("Contract code on Polygon", 137, "contract", True),
+        _account_row("EIP-7702 delegation on Polygon", 137, "eip7702", False),
+    ],
+    "passCount": 5,
+    "failCount": 5,
+    "notEvaluatedCount": 0,
+    "total": 10,
+}
+
+
 BATCH = {
     "ok": True,
     "data": {
         "results": [
             {
                 "trust": {
-                    "id": "TRST-AAAAA",
-                    "wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-                    "conditionSetVersion": "2026-10",
-                    "expiresAt": "2026-10-07T19:32:38.129Z",
+                    "id": "TRST-74167",
+                    "wallet": "0x1601843c5E9bC251A3272907010AFa41Fa18347E",
+                    "conditionSetVersion": "2026-10-08",
+                    "expiresAt": "2026-10-07T22:23:03.720Z",
+                    # Deliberately not in the API's order: the summary must reorder.
                     "dimensions": {
+                        "account": ACCOUNT_DIMENSION,
                         "stablecoins": {"checks": [_row("USDC on Ethereum", True), _row("USDT on Ethereum", False)], "total": 2},
                         "institutional_stablecoins": {"checks": [_row("USDC on Solana", False, evaluated=False)], "total": 1},
                     },
-                    "summary": {"totalChecks": 3, "totalPassed": 1, "totalFailed": 1, "totalNotEvaluated": 1},
+                    "summary": {"totalChecks": 13, "totalPassed": 6, "totalFailed": 6, "totalNotEvaluated": 1},
                 },
                 "sig": "c2ln",
                 "kid": "insumer-trust-v2",
@@ -409,11 +481,20 @@ class TestBatchTrustSummary:
                            "args": {"wallets": [{"wallet": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"}]}})
         assert msg.artifact == BATCH
         assert msg.content.startswith("Batch trust profiles: 2 requested, 1 signed, 1 not signed. Credits charged: 3.")
-        assert "1. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 · TRST-AAAAA · check set 2026-10" in msg.content
+        assert "1. 0x1601843c5E9bC251A3272907010AFa41Fa18347E · TRST-74167 · check set 2026-10-08" in msg.content
         assert "signed (insumer-trust-v2 + insumer-trust-pq1)" in msg.content
+        assert "13 checks: 6 held, 6 not held, 1 not evaluated" in msg.content
         assert "stablecoins: 1 of 2 held: USDC on Ethereum" in msg.content
         assert "USDT on Ethereum" not in msg.content
         assert "institutional_stablecoins: 0 of 1 held (1 not evaluated)" in msg.content
+        assert (
+            "account: 5 of 10 present: Contract code on Ethereum, Contract code on Base, "
+            "Contract code on Arbitrum, Contract code on Optimism, Contract code on Polygon"
+        ) in msg.content
+        assert "EIP-7702 delegation on Ethereum" not in msg.content
+        assert "account: 5 of 10 held" not in msg.content
+        # Fixed order: account arrived first in the fixture and prints last of the base dimensions.
+        assert msg.content.index("stablecoins:") < msg.content.index("institutional_stablecoins:") < msg.content.index("account:")
         assert "not signed: rpc_failure" in msg.content and "never read this entry as a no" in msg.content
         assert "No credits were charged for it." in msg.content
         assert "c2ln" not in msg.content
@@ -452,6 +533,52 @@ class TestBatchTrustSummary:
         assert summarize_batch_trust({"ok": True, "data": {"results": "x"}}) is None
         assert summarize_batch_trust("x") is None
         summarize_batch_trust({"ok": True, "data": {"results": [None, "x", 1, {"trust": None}, {"error": "boom"}, {"trust": {"dimensions": "x"}}]}})
+
+    def test_dimensions_print_in_a_fixed_order_whatever_order_they_arrive_in(self):
+        from langchain_insumer.tools._batch_summary import DIMENSION_ORDER, summarize_batch_trust
+
+        def dim(label, met=True):
+            return {"checks": [_row(label, met)], "total": 1}
+
+        base = {
+            "stablecoins": dim("USDC on Ethereum"),
+            "governance": dim("UNI on Ethereum"),
+            "nfts": dim("BAYC on Ethereum"),
+            "staking": dim("stETH on Ethereum"),
+            "institutional_stablecoins": dim("EURCV on Ethereum"),
+            "tokenized_treasuries": dim("BUIDL on Ethereum"),
+            "stablecoin_deposits": dim("aUSDC on Ethereum"),
+            "wrapped_bitcoin": dim("WBTC on Ethereum"),
+            "names": dim("ENS name"),
+            "account": dim("Contract code on Ethereum"),
+            "solana": dim("USDC on Solana"),
+            "xrpl": dim("RLUSD on XRPL"),
+            "bitcoin": dim("BTC"),
+            "tron": dim("USDT on Tron"),
+            "zzz_future": dim("future check"),
+            "aaa_future": dim("another future check"),
+        }
+        # Wallet 1: the API's order. Wallet 2: the same dimensions, reversed.
+        forward = dict(base.items())
+        backward = dict(reversed(list(base.items())))
+        assert list(forward) != list(backward)
+
+        def entry(wallet, dims):
+            return {
+                "trust": {"id": "TRST-X", "wallet": wallet, "conditionSetVersion": "2026-10-08", "dimensions": dims, "summary": {}},
+                "sig": "s", "kid": "insumer-trust-v2",
+            }
+
+        text = summarize_batch_trust({"ok": True, "data": {"results": [entry("0x" + "a" * 40, forward), entry("0x" + "b" * 40, backward)]}, "meta": {}})
+        blocks = text.split("\n\n")[1:]
+        assert len(blocks) == 2
+        lines_1 = [line for line in blocks[0].split("\n") if line.startswith("   ") and " of " in line]
+        lines_2 = [line for line in blocks[1].split("\n") if line.startswith("   ") and " of " in line]
+        assert lines_1 == lines_2
+        names = [line.strip().split(":")[0] for line in lines_1]
+        assert names == list(DIMENSION_ORDER) + ["aaa_future", "zzz_future"]
+        assert "   account: 1 of 1 present: Contract code on Ethereum" in lines_1
+        assert all(" held" in line for line in lines_1 if not line.startswith("   account:"))
 
 
 
