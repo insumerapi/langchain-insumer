@@ -35,16 +35,16 @@ class BuyMerchantCreditsSchema(BaseModel):
 class InsumerBuyMerchantCreditsTool(BaseTool):
     """Buy verification credits for a specific merchant with USDC, USDT, or BTC. Owner only.
 
-    Rate: 25 credits per $1 ($0.04/credit). Minimum 5. Merchant credits
-    are separate from API key credits.
+    Rate: 25 credits per $1 ($0.04/credit). Minimum 5. The credits land on
+    the API key that owns the store; a store has no balance of its own.
     """
 
     name: str = "insumer_buy_merchant_credits"
     description: str = (
         "Buy verification credits for a specific merchant by submitting a "
         "USDC, USDT, or BTC transaction hash. Rate: 25 credits per $1. "
-        "Minimum 5. Owner only. Merchant credits are separate from API "
-        "key credits."
+        "Minimum 5. Owner only. The credits land on the API key that owns "
+        "the store; a store has no balance of its own."
     )
     args_schema: Type[BuyMerchantCreditsSchema] = BuyMerchantCreditsSchema
 

@@ -747,7 +747,7 @@ class InsumerAPIWrapper(BaseModel):
         amount: Optional[float] = None,
         update_wallet: bool = False,
     ) -> dict:
-        """Buy merchant verification credits with USDC, USDT, or BTC. Rate: 25 credits per $1. Min 5. Owner only."""
+        """Add credits to the API key that owns a store with USDC, USDT, or BTC. Rate: 25 credits per $1. Min 5. Owner only."""
         body: dict = {
             "txHash": tx_hash,
             "chainId": chain_id,
@@ -887,8 +887,8 @@ class InsumerAPIWrapper(BaseModel):
 
         Call after placing the verification token (from
         ``request_domain_verification()``) via DNS TXT, meta tag, or file.
-        The server checks all three methods automatically. Rate limited
-        to 5 attempts per hour. Owner only.
+        The server checks all three methods automatically. Rate limited per
+        merchant (a 429 says when to retry). Owner only.
 
         Args:
             merchant_id: Merchant identifier.

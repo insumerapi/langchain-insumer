@@ -392,7 +392,7 @@ print(msg.content)                        # the summary
 profiles = msg.artifact["data"]["results"]  # the signed profiles
 ```
 
-Called with plain arguments (`batch_tool.invoke({"wallets": [...]})`), the tool returns only the content. **Changed in 0.14.0:** a plain-argument call used to return the complete JSON; it now returns the summary. Pass `detail="full"` for the complete response as text (the pre-0.14.0 output), or call `InsumerAPIWrapper.batch_wallet_trust()` directly for the parsed response. Profiles cannot be fetched again, so choose `detail` on the call that needs it.
+Called with plain arguments (`batch_tool.invoke({"wallets": [...]})`), the tool returns only the content. A plain-argument call returns the summary. Pass `detail="full"` for the complete response as text, or call `InsumerAPIWrapper.batch_wallet_trust()` directly for the parsed response. Profiles cannot be fetched again, so choose `detail` on the call that needs it.
 
 ## Using All Tools
 

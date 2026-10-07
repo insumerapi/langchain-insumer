@@ -22,15 +22,15 @@ class InsumerVerifyDomainTool(BaseTool):
     Call after placing the verification token (from
     ``insumer_request_domain_verification``) via DNS TXT record, HTML meta
     tag, or file upload. The server checks all three methods automatically.
-    Rate limited to 5 attempts per hour. Owner only.
+    Rate limited per merchant (a 429 says when to retry). Owner only.
     """
 
     name: str = "insumer_verify_domain"
     description: str = (
         "Verify domain ownership for a merchant. Call after placing the "
         "verification token via DNS TXT, meta tag, or file. The server "
-        "checks all three methods automatically. Rate limited to 5 attempts "
-        "per hour. Owner only."
+        "checks all three methods automatically. Rate limited per merchant "
+        "(a 429 says when to retry). Owner only."
     )
     args_schema: Type[VerifyDomainSchema] = VerifyDomainSchema
 
