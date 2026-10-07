@@ -366,7 +366,7 @@ This text is a summary for reading. Each signed profile (trust object, sig and k
 Every check is held or not held (present or not present for the account dimension: contract code or an EIP-7702 delegation at the address), never a balance and never the code. The counts are facts about the wallet, not a score.
 
 1. 0x1601843c5E9bC251A3272907010AFa41Fa18347E · TRST-74167 · check set 2026-10-08 · expires 2026-10-07T22:23:03.720Z · signed (insumer-trust-v2 + insumer-trust-pq1)
-   169 checks: 17 held, 147 not held, 5 not evaluated
+   169 checks: 12 assets held, 5 account facts present, 147 not held, 5 not evaluated
    stablecoins: 6 of 52 held: USDC on Base, PYUSD on Ethereum, RLUSD on Ethereum, USDG on Ethereum, USDS on Base, USDS on Ethereum
    governance: 0 of 8 held
    nfts: 0 of 3 held

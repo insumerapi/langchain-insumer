@@ -483,7 +483,7 @@ class TestBatchTrustSummary:
         assert msg.content.startswith("Batch trust profiles: 2 requested, 1 signed, 1 not signed. Credits charged: 3.")
         assert "1. 0x1601843c5E9bC251A3272907010AFa41Fa18347E · TRST-74167 · check set 2026-10-08" in msg.content
         assert "signed (insumer-trust-v2 + insumer-trust-pq1)" in msg.content
-        assert "13 checks: 6 held, 6 not held, 1 not evaluated" in msg.content
+        assert "13 checks: 1 assets held, 5 account facts present, 6 not held, 1 not evaluated" in msg.content
         assert "stablecoins: 1 of 2 held: USDC on Ethereum" in msg.content
         assert "USDT on Ethereum" not in msg.content
         assert "institutional_stablecoins: 0 of 1 held (1 not evaluated)" in msg.content

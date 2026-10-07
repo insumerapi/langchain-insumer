@@ -79,8 +79,22 @@ def _dimension_line(name: str, dim: dict) -> str:
     return line
 
 
+def _held_line(summary: dict, dims: dict) -> str:
+    """Asset rows held, with the account dimension's facts counted beside them, never added.
+
+    A profile without an account dimension keeps the plain count.
+    """
+    account = dims.get("account") if isinstance(dims.get("account"), dict) else None
+    present = account.get("passCount") if account else None
+    total_passed = summary.get("totalPassed")
+    if not (isinstance(present, int) and not isinstance(present, bool)) or not (isinstance(total_passed, int) and not isinstance(total_passed, bool)) or total_passed < present:
+        return f"{_str(total_passed)} held"
+    return f"{total_passed - present} assets held, {present} account facts present"
+
+
 def _profile_lines(index: int, entry: dict, trust: dict) -> List[str]:
     summary = trust.get("summary") if isinstance(trust.get("summary"), dict) else {}
+    dims = trust.get("dimensions") if isinstance(trust.get("dimensions"), dict) else {}
     if _is_signed(entry):
         kid = entry["kid"]
         pq = f" + {_str(entry.get('pqKid'))}" if entry.get("pqKid") and entry.get("pqSig") else ""
@@ -89,9 +103,8 @@ def _profile_lines(index: int, entry: dict, trust: dict) -> List[str]:
         signature = "returned without a signature: do not rely on it"
     lines = [
         f"{index}. {_str(trust.get('wallet'))} · {_str(trust.get('id'))} · check set {_str(trust.get('conditionSetVersion'))} · expires {_str(trust.get('expiresAt'))} · {signature}",
-        f"   {_str(summary.get('totalChecks'))} checks: {_str(summary.get('totalPassed'))} held, {_str(summary.get('totalFailed'))} not held, {_str(summary.get('totalNotEvaluated'))} not evaluated",
+        f"   {_str(summary.get('totalChecks'))} checks: {_held_line(summary, dims)}, {_str(summary.get('totalFailed'))} not held, {_str(summary.get('totalNotEvaluated'))} not evaluated",
     ]
-    dims = trust.get("dimensions") if isinstance(trust.get("dimensions"), dict) else {}
     for name in _ordered_dimensions(dims):
         dim = dims[name]
         if isinstance(dim, dict):
@@ -140,7 +153,7 @@ def summarize_batch_trust(response: Any) -> Optional[str]:
     out = [
         f"Batch trust profiles: {requested} requested, {succeeded} signed, {failed} not signed. {charge}",
         "This text is a summary for reading. Each signed profile (trust object, sig and kid, pqSig and pqKid) is in this tool result's artifact, unchanged, and verifies against the InsumerAPI JWKS. Profiles cannot be fetched again, so a new call with detail=\"full\" signs fresh profiles and is charged again.",
-        "Every check is held or not held (present or not present for the account dimension: contract code or an EIP-7702 delegation at the address), never a balance and never the code. The counts are facts about the wallet, not a score.",
+        "Every check is held or not held (present or not present for the account dimension: contract code or an EIP-7702 delegation at the address), never a balance and never the code. The counts are facts about the wallet, not a score; the account facts are counted beside the assets, never added to them.",
         "",
     ]
     for i, entry in enumerate(results, start=1):
