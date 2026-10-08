@@ -17,8 +17,9 @@ class ConfigureSettingsSchema(BaseModel):
     discount_mode: Optional[str] = Field(
         default=None,
         description=(
-            'Discount stacking mode: "highest" (best single discount wins) '
-            'or "stack" (discounts add up to discount_cap).'
+            'Discount stacking mode: "highest" (best single discount wins), '
+            '"stack" (all discounts add up) or "capped" (all discounts add '
+            'up, then capped at discount_cap).'
         ),
     )
     discount_cap: Optional[int] = Field(
@@ -40,13 +41,13 @@ class ConfigureSettingsSchema(BaseModel):
 class InsumerConfigureSettingsTool(BaseTool):
     """Update merchant settings: discount mode, cap, and USDC payments. Owner only.
 
-    All fields are optional — only provided fields are updated.
+    All fields are optional; only provided fields are updated.
     """
 
     name: str = "insumer_configure_settings"
     description: str = (
         "Update merchant settings. Options: discount stacking mode "
-        '("highest" or "stack"), discount cap (a whole number from 1 to 100), and USDC payment '
+        '("highest", "stack" or "capped"), discount cap (a whole number from 1 to 100), and USDC payment '
         "configuration (wallet addresses, preferred chain). All fields "
         "optional. Owner only."
     )

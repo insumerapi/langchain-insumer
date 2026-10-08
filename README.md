@@ -1,8 +1,8 @@
 # langchain-insumer
 
-LangChain tools for [InsumerAPI](https://insumermodel.com/developers/) -- wallet auth across 37 blockchains. Returns ECDSA-signed booleans without exposing wallet balances. Up to 10 conditions per request, each with its own chainId. Optional Merkle storage proofs for trustless verification.
+LangChain tools for [InsumerAPI](https://insumermodel.com/developers/): wallet auth across 37 blockchains. Returns ECDSA-signed booleans without exposing wallet balances. Up to 10 conditions per request, each with its own chainId. Optional Merkle storage proofs for trustless verification.
 
-**In production:** [AsterPay](https://github.com/AsterPay/erc8183-kya-hook) — a regulated payments stack — runs live ERC-8183 agentic-commerce trust scoring on InsumerAPI. [Case study](https://insumermodel.com/blog/asterpay-kya-erc8183-attestation-integration.html).
+**In production:** [AsterPay](https://github.com/AsterPay/erc8183-kya-hook), a regulated payments stack, runs live ERC-8183 agentic-commerce trust checks on InsumerAPI. [Case study](https://insumermodel.com/blog/asterpay-kya-erc8183-attestation-integration.html).
 
 Also available as: [MCP server](https://www.npmjs.com/package/mcp-server-insumer) (27 tools, npm) | [ElizaOS](https://www.npmjs.com/package/@insumermodel/plugin-eliza) (10 actions, npm) | [OpenAI GPT](https://chatgpt.com/g/g-699c5e43ce2481918b3f1e7f144c8a49-insumerapi-verify) (GPT Store) | [insumer-verify](https://www.npmjs.com/package/insumer-verify) (client-side verification, npm)
 
@@ -14,9 +14,9 @@ Also available as: [MCP server](https://www.npmjs.com/package/mcp-server-insumer
 pip install langchain-insumer
 ```
 
-## Get a key — no signup, no dashboard, no password
+## Get a key: no signup, no dashboard, no password
 
-Two paths. Both return an `insr_live_...` key instantly with 10 verification credits and 100 reads/day. One free key per email.
+Two paths. Both return an `insr_live_...` key instantly with 10 free verifications plus 100 requests a day. One free key per email.
 
 ```bash
 curl -X POST \
@@ -25,7 +25,7 @@ curl -X POST \
   -d '{"email": "you@example.com", "appName": "my-agent", "tier": "free"}'
 ```
 
-Or enter your email on [insumermodel.com](https://insumermodel.com/?utm_source=pypi-langchain-insumer) — the key appears inline.
+Or enter your email on [insumermodel.com](https://insumermodel.com/?utm_source=pypi-langchain-insumer); the key appears inline.
 
 **Already have a key?** Manage usage, top up, or upgrade at [insumermodel.com/developers/account/](https://insumermodel.com/developers/account/?utm_source=pypi-langchain-insumer).
 
@@ -107,7 +107,7 @@ print(f"Key ID: {result['data']['kid']}")
 
 No balances. No amounts. Just a signed true/false per condition.
 
-Since September 2026 every attest and trust response also carries an ML-DSA-65 post-quantum companion signature (`pqSig`, `pqKid`; `pqJwt` beside `jwt`) over the same bytes the classical `kid` selects. It is additive: `sig` and `kid` are unchanged, and the companion key is published in the same JWKS under the RFC 9964 `AKP` kids `insumer-attest-pq1` and `insumer-trust-pq1`.
+Every attest and trust response also carries an ML-DSA-65 post-quantum companion signature (`pqSig`, `pqKid`; `pqJwt` beside `jwt`) over the same bytes the classical `kid` selects. It is additive: `sig` and `kid` are unchanged, and the companion key is published in the same JWKS under the RFC 9964 `AKP` kids `insumer-attest-pq1` and `insumer-trust-pq1`.
 
 ### Wallet Auth (JWT)
 
@@ -123,7 +123,7 @@ result = api.attest(
 print(result["data"]["jwt"])  # ES256-signed JWT
 ```
 
-The response includes an additional `jwt` field, with its post-quantum sibling `pqJwt` (a compact JWS, `alg: ML-DSA-65`, same claims) beside it. The `jwt` token is verifiable by any standard JWT library via the JWKS endpoint at `GET /v1/jwks` — compatible with Kong, Nginx, Cloudflare Access, AWS API Gateway, and other JWT middleware.
+The response includes an additional `jwt` field, with its post-quantum sibling `pqJwt` (a compact JWS, `alg: ML-DSA-65`, same claims) beside it. The `jwt` token is verifiable by any standard JWT library via the JWKS endpoint at `GET /v1/jwks`, compatible with Kong, Nginx, Cloudflare Access, AWS API Gateway, and other JWT middleware.
 
 ### XRPL Verification
 
@@ -164,7 +164,7 @@ result = api.wallet_trust(
 )
 ```
 
-XRPL attestation results include `ledgerIndex` and `ledgerHash` (validated ledger hash) instead of `blockNumber`/`blockTimestamp`. Trust line token results also include `trustLineState: { frozen: bool }` — a frozen trust line causes `met: false` regardless of balance. Native XRP results include `ledgerHash` but not `trustLineState`.
+XRPL attestation results include `ledgerIndex` and `ledgerHash` (validated ledger hash) instead of `blockNumber`/`blockTimestamp`. Trust line token results also include `trustLineState: { frozen: bool }`; a frozen trust line causes `met: false` regardless of balance. Native XRP results include `ledgerHash` but not `trustLineState`.
 
 ### Account code state (plain key, EIP-7702 delegation, contract)
 
@@ -222,7 +222,7 @@ npm install insumer-verify
 import { verifyAttestation } from "insumer-verify";
 
 // attestationResponse = the full API envelope {ok, data: {attestation, sig, kid, pqSig, pqKid}, meta}
-// Do NOT pass attestationResponse.data — the function expects the outer envelope
+// Do NOT pass attestationResponse.data: the function expects the outer envelope
 const result = await verifyAttestation(attestationResponse, {
   jwksUrl: "https://insumermodel.com/.well-known/jwks.json",
   maxAge: 120,
@@ -303,7 +303,7 @@ print(attest.run({
 | `InsumerComplianceTemplatesTool` | List available EAS compliance templates (Coinbase Verifications on Base, Gitcoin Passport on Optimism). | Free |
 | `InsumerWalletTrustTool` | Generate wallet trust fact profile (155 base checks across 27 chains in 10 dimensions: stablecoins, governance, NFTs, staking, institutional stablecoins, tokenized treasuries, stablecoin deposits, wrapped bitcoin, names, account (contract code or EIP-7702 delegation present on Ethereum, Base, Arbitrum, Optimism, Polygon); up to 176 across 29 chains in 14 dimensions with optional Solana, XRPL, Bitcoin, and Tron wallets; Stellar and Sui wallets switch on rows inside the base dimensions). Every check is a presence check; the signed `conditionSetVersion` (currently `2026-10-08`) names the check list run; dimensions come back in a fixed order. | 3/call (6 with merkle) |
 | `InsumerBatchWalletTrustTool` | Batch trust profiles for up to 10 wallets. Faster than sequential calls. Each wallet can include optional `solanaWallet`, `xrplWallet`, `bitcoinWallet`, `tronWallet`, `stellarWallet` and `suiWallet`. The model reads a per-wallet summary; the signed profiles are the tool result's artifact (see [Batch trust: summary and signed profiles](#batch-trust-summary-and-signed-profiles)). | 3/wallet (6 with merkle) |
-| `InsumerVerifyTool` | Create signed discount code (INSR-XXXXX), valid 30 min. | 1/call |
+| `InsumerVerifyTool` | Create signed discount code (INSR-XXXXX), valid 30 min. | 1 from the store owner's key (0% free) |
 | `InsumerConfirmPaymentTool` | Confirm USDC payment for a discount code. | Free |
 | `InsumerJwksTool` | Get the JWKS: the ECDSA P-256 signing key under three kids plus the ML-DSA-65 post-quantum key under two RFC 9964 `AKP` entries. | Free |
 
@@ -322,8 +322,8 @@ print(attest.run({
 |------|-------------|---------|
 | `InsumerBuyKeyTool` | Buy a new API key with USDC, USDT, or BTC (no auth required). Wallet becomes identity. | -- |
 | `InsumerCreditsTool` | Check API key credit balance and tier. | Free |
-| `InsumerBuyCreditsTool` | Buy API key credits with USDC, USDT, or BTC (25 credits/$1). | -- |
-| `InsumerBuyMerchantCreditsTool` | Add credits to the store owner's API key with USDC, USDT, or BTC (25 credits/$1). | -- |
+| `InsumerBuyCreditsTool` | Buy API key credits with USDC, USDT, or BTC (25 to 50 credits/$1 by volume). | -- |
+| `InsumerBuyMerchantCreditsTool` | Add credits to the store owner's API key with USDC, USDT, or BTC (flat 25 credits/$1). | -- |
 
 ### Merchant Onboarding
 
@@ -347,8 +347,8 @@ print(attest.run({
 
 | Tool | Description | Credits |
 |------|-------------|---------|
-| `InsumerAcpDiscountTool` | Check discount eligibility in OpenAI/Stripe ACP format. Returns coupon objects and per-item allocations. | 1/call |
-| `InsumerUcpDiscountTool` | Check discount eligibility in Google UCP format. Returns title, extension field, and applied array. | 1/call |
+| `InsumerAcpDiscountTool` | Check discount eligibility in OpenAI/Stripe ACP format. Returns coupon objects and per-item allocations. | 1 from the store owner's key (0% free) |
+| `InsumerUcpDiscountTool` | Check discount eligibility in Google UCP format. Returns title, extension field, and applied array. | 1 from the store owner's key (0% free) |
 | `InsumerValidateCodeTool` | Validate an INSR-XXXXX discount code. Returns validity, discount percent, expiry. | Free |
 
 ## Batch trust: summary and signed profiles
@@ -363,7 +363,7 @@ The first wallet of the spec's batch example (three wallets, this one with a Sol
 ```
 Batch trust profiles: 3 requested, 3 signed, 0 not signed. Credits charged: 9.
 This text is a summary for reading. Each signed profile (trust object, sig and kid, pqSig and pqKid) is in this tool result's artifact, unchanged, and verifies against the InsumerAPI JWKS. Profiles cannot be fetched again, so a new call with detail="full" signs fresh profiles and is charged again.
-Every check is held or not held (present or not present for the account dimension: contract code or an EIP-7702 delegation at the address), never a balance and never the code. The counts are facts about the wallet, not a score.
+Every check is held or not held (present or not present for the account dimension: contract code or an EIP-7702 delegation at the address), never a balance and never the code. The counts are facts about the wallet, not a score; the account facts are counted beside the assets, never added to them.
 
 1. 0x1601843c5E9bC251A3272907010AFa41Fa18347E · TRST-74167 · check set 2026-10-08 · expires 2026-10-07T22:23:03.720Z · signed (insumer-trust-v2 + insumer-trust-pq1)
    169 checks: 12 assets held, 5 account facts present, 147 not held, 5 not evaluated
@@ -550,7 +550,7 @@ except requests.HTTPError as exc:
 
 31 EVM chains + Solana + XRP Ledger + Bitcoin + Tron + Stellar + Sui. Includes Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain, Avalanche, XDC, Robinhood Chain, and 22 more EVM. NFT ownership on 33 of the 37 (EVM + Solana + XRPL); Bitcoin, Tron, Stellar and Sui are token-balance only. Merkle storage proofs are available on 27 of the 31 EVM chains (not ZKsync Era, Sei, Viction or XDC Network). [Full list →](https://insumermodel.com/developers/api-reference/)
 
-## Get a key — no signup, no dashboard, no password
+## Get a key: no signup, no dashboard, no password
 
 Generate one from your terminal:
 
@@ -560,11 +560,11 @@ curl -s -X POST https://api.insumermodel.com/v1/keys/create \
   -d '{"email": "you@example.com", "appName": "LangChain Agent", "tier": "free"}' | jq .
 ```
 
-Returns an `insr_live_...` key with 100 reads/day and 10 verification credits. One free key per email.
+Returns an `insr_live_...` key with 10 free verifications plus 100 requests a day. One free key per email.
 
 Or enter your email on [insumermodel.com](https://insumermodel.com/?utm_source=pypi-langchain-insumer). Already have a key? Manage it at [insumermodel.com/developers/account/](https://insumermodel.com/developers/account/?utm_source=pypi-langchain-insumer).
 
-**Tiers:** Free (100 reads/day, 10 credits) | Pro $29/mo (10,000/day) | Enterprise $99/mo (100,000/day)
+**Tiers:** Free (10 free verifications plus 100 requests a day) | Pro $29/mo (10,000/day) | Enterprise $99/mo (100,000/day)
 
 ## Links
 

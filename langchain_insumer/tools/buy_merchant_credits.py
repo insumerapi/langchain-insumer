@@ -1,4 +1,4 @@
-"""Tool for buying merchant-specific verification credits with USDC, USDT, or BTC."""
+"""Tool for adding credits to the API key that owns a store, with USDC, USDT, or BTC."""
 
 import json
 from typing import Any, Optional, Type
@@ -13,7 +13,7 @@ from langchain_insumer.wrapper import InsumerAPIWrapper
 class BuyMerchantCreditsSchema(BaseModel):
     """Input for InsumerBuyMerchantCreditsTool."""
 
-    id: str = Field(description="Merchant ID to buy credits for.")
+    id: str = Field(description="ID of the merchant whose owner key receives the credits.")
     tx_hash: str = Field(description="Transaction hash of the USDC, USDT, BTC, or USDT-TRC20 payment to the platform wallet.")
     chain_id: Any = Field(
         description=(
@@ -24,7 +24,7 @@ class BuyMerchantCreditsSchema(BaseModel):
     )
     amount: Optional[float] = Field(
         default=None,
-        description="Stablecoin amount sent (min 5). Not required for BTC — USD value derived from on-chain BTC amount at market rate.",
+        description="Stablecoin amount sent (min 5). Not required for BTC: USD value derived from on-chain BTC amount at market rate.",
     )
     update_wallet: bool = Field(
         default=False,
@@ -33,16 +33,16 @@ class BuyMerchantCreditsSchema(BaseModel):
 
 
 class InsumerBuyMerchantCreditsTool(BaseTool):
-    """Buy verification credits for a specific merchant with USDC, USDT, or BTC. Owner only.
+    """Add credits to the API key that owns a store, with USDC, USDT, or BTC. Owner only.
 
-    Rate: 25 credits per $1 ($0.04/credit). Minimum 5. The credits land on
+    Flat 25 credits per $1 ($0.04/credit). Minimum 5. The credits land on
     the API key that owns the store; a store has no balance of its own.
     """
 
     name: str = "insumer_buy_merchant_credits"
     description: str = (
-        "Buy verification credits for a specific merchant by submitting a "
-        "USDC, USDT, or BTC transaction hash. Rate: 25 credits per $1. "
+        "Add credits to the API key that owns a store by submitting a "
+        "USDC, USDT, or BTC transaction hash. Flat 25 credits per $1. "
         "Minimum 5. Owner only. The credits land on the API key that owns "
         "the store; a store has no balance of its own."
     )

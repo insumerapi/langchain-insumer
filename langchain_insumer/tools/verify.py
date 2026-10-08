@@ -31,7 +31,7 @@ class VerifySchema(BaseModel):
 class InsumerVerifyTool(BaseTool):
     """Create a signed discount verification code for a wallet at a merchant.
 
-    Returns tier and discount percentage -- never raw balance amounts.
+    Returns tier and discount percentage, never raw balance amounts.
     The code (INSR-XXXXX) is valid for 30 minutes and can be redeemed
     at the merchant's point of sale. Costs 1 credit from the API key that owns the store (a 0% result is free).
     """
@@ -39,7 +39,7 @@ class InsumerVerifyTool(BaseTool):
     name: str = "insumer_verify"
     description: str = (
         "Create a signed discount verification code (INSR-XXXXX) for a wallet "
-        "at a specific merchant. Returns tier and discount percentage -- never "
+        "at a specific merchant. Returns tier and discount percentage, never "
         "raw balance amounts. The code is valid for 30 minutes and includes "
         "an ECDSA signature. Costs 1 credit from the API key that owns the store (a 0% result is free)."
     )

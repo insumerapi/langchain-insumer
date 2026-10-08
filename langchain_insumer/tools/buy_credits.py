@@ -23,7 +23,7 @@ class BuyCreditsSchema(BaseModel):
     )
     amount: Optional[float] = Field(
         default=None,
-        description="Stablecoin amount sent (min 5). Not required for BTC — USD value derived from on-chain BTC amount at market rate.",
+        description="Stablecoin amount sent (min 5). Not required for BTC: USD value derived from on-chain BTC amount at market rate.",
     )
     update_wallet: bool = Field(
         default=False,
@@ -34,15 +34,18 @@ class BuyCreditsSchema(BaseModel):
 class InsumerBuyCreditsTool(BaseTool):
     """Buy verification credits with USDC, USDT, or BTC.
 
-    Rate: 25 credits per $1 ($0.04/credit). Minimum purchase: 5
-    (125 credits). The server verifies the on-chain transaction receipt.
+    Volume tiers: $5 to $99: 25 credits per $1 ($0.04/credit); $100 to
+    $499: 33 per $1 ($0.03); $500 and up: 50 per $1 ($0.02). Minimum
+    purchase: 5 (125 credits). The server verifies the on-chain transaction
+    receipt.
     """
 
     name: str = "insumer_buy_credits"
     description: str = (
         "Buy verification credits for the API key by submitting a USDC, "
-        "USDT, or BTC transaction hash. Rate: 25 credits per $1. "
-        "Minimum 5. Supports 7 EVM chains, Solana, and Bitcoin."
+        "USDT, or BTC transaction hash. 25 to 50 credits per $1 by volume "
+        "($0.04 to $0.02/credit). Minimum 5. Supports 7 EVM chains, Solana, "
+        "Bitcoin and Tron."
     )
     args_schema: Type[BuyCreditsSchema] = BuyCreditsSchema
 

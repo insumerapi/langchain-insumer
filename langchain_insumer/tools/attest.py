@@ -101,10 +101,10 @@ class InsumerAttestTool(BaseTool):
     identity, view calls, ratios, ERC-8004 registration, ERC-7710 delegations, or
     the account code state (plain key, EIP-7702 delegation, contract code).
 
-    Returns only true/false per condition -- never exposes actual balances, code
+    Returns only true/false per condition and never exposes actual balances, code
     or delegation targets.
-    The response includes an ECDSA P-256 signature (sig, kid) and, since
-    September 2026, an ML-DSA-65 post-quantum companion (pqSig, pqKid).
+    The response includes an ECDSA P-256 signature (sig, kid) and an
+    ML-DSA-65 post-quantum companion (pqSig, pqKid).
     Costs 1 verification credit per call, or 2 credits with proof="merkle".
     For EAS attestations, use a compliance template (Coinbase Verifications,
     Gitcoin Passport) or raw schemaId. For Farcaster, use type "farcaster_id".

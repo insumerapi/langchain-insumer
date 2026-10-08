@@ -29,7 +29,8 @@ class BatchWalletTrustSchema(BaseModel):
         default=None,
         description=(
             'Set to "merkle" to include EIP-1186 Merkle storage proofs on EVM '
-            "token checks. Account rows carry proof.available false with a "
+            "token checks, on 27 of the 31 EVM chains (not ZKsync Era, Sei, "
+            "Viction or XDC Network). Account rows carry proof.available false with a "
             "reason pointing at /v1/attest. Costs 6 credits per wallet instead of 3."
         ),
     )

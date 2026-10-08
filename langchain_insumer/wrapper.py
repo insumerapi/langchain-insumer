@@ -316,8 +316,8 @@ class InsumerAPIWrapper(BaseModel):
 
         Returns:
             API response with verification results, ECDSA signature (``sig``),
-            and key ID (``kid``) identifying the signing key. Since September
-            2026 every response also carries an ML-DSA-65 post-quantum
+            and key ID (``kid``) identifying the signing key. Every response
+            also carries an ML-DSA-65 post-quantum
             companion signature (``pqSig``, ``pqKid``) over the same bytes the
             classical ``kid`` selects; additive, ``sig`` and ``kid`` are
             unchanged. Fetch the public keys via ``get_jwks()`` to verify
@@ -343,7 +343,7 @@ class InsumerAPIWrapper(BaseModel):
         # precision, no float in signed bytes); v1 keys accept either. Coerce numbers to
         # strings so the request works on any key. Other condition fields are untouched.
         #   token_balance.threshold, ratio_to_amount.multiple/amount, ratio_to_supply.minFraction.
-        # NOTE: str() — NOT the builtin format(), which is shadowed by the `format` parameter.
+        # NOTE: str(), NOT the builtin format(), which is shadowed by the `format` parameter.
         _str_fields = {
             "token_balance": ("threshold",),
             "ratio_to_amount": ("multiple", "amount"),
@@ -456,7 +456,7 @@ class InsumerAPIWrapper(BaseModel):
             API response with trust profile, ECDSA signature (``sig``),
             key ID (``kid``, ``insumer-trust-v2`` on current keys), and the
             ML-DSA-65 post-quantum companion (``pqSig``, ``pqKid``
-            ``insumer-trust-pq1``) carried since September 2026.
+            ``insumer-trust-pq1``).
         """
         body: dict[str, Any] = {"wallet": wallet}
         if solana_wallet:
@@ -495,7 +495,8 @@ class InsumerAPIWrapper(BaseModel):
                 ``xrplWallet`` (r-address), ``bitcoinWallet``, ``tronWallet``
                 (T-prefixed), ``stellarWallet`` (G-prefixed), and ``suiWallet``
                 (0x + 64 hex).
-            proof: Set to ``"merkle"`` for EIP-1186 Merkle storage proofs.
+            proof: Set to ``"merkle"`` for EIP-1186 Merkle storage proofs
+                (27 of the 31 EVM chains).
                 Costs 6 credits per wallet instead of 3.
 
         Returns:
@@ -609,7 +610,7 @@ class InsumerAPIWrapper(BaseModel):
         stellar_wallet: Optional[str] = None,
         sui_wallet: Optional[str] = None,
     ) -> dict:
-        """Create a signed discount code (INSR-XXXXX), valid 30 minutes. Costs 1 credit."""
+        """Create a signed discount code (INSR-XXXXX), valid 30 minutes. Costs 1 credit from the API key that owns the store (a 0% result is free)."""
         _warn_unread_wallets(
             "verify",
             bitcoin_wallet=bitcoin_wallet,
@@ -630,16 +631,25 @@ class InsumerAPIWrapper(BaseModel):
         self,
         tx_hash: str,
         chain_id: Any,
-        amount: float,
+        amount: Optional[float],
         app_name: str,
     ) -> dict:
-        """Buy a new API key with USDC, USDT, or BTC (no auth required). Wallet becomes the key identity."""
-        return self._public_post("/keys/buy", {
+        """Buy a new API key with USDC, USDT, or BTC (no auth required). Wallet becomes the key identity.
+
+        ``amount`` may be None for a Bitcoin purchase (the USD value is
+        derived from the on-chain BTC amount at market rate). The response
+        omits ``key`` when the paying EVM wallet receives the Insumer Access
+        pass (the default); that wallet then authenticates with
+        ``Authorization: Wallet``.
+        """
+        body: dict = {
             "txHash": tx_hash,
             "chainId": chain_id,
-            "amount": amount,
             "appName": app_name,
-        })
+        }
+        if amount is not None:
+            body["amount"] = amount
+        return self._public_post("/keys/buy", body)
 
     def buy_credits(
         self,
@@ -648,7 +658,7 @@ class InsumerAPIWrapper(BaseModel):
         amount: Optional[float] = None,
         update_wallet: bool = False,
     ) -> dict:
-        """Buy verification credits with USDC, USDT, or BTC. Rate: 25 credits per $1. Minimum 5."""
+        """Buy verification credits with USDC, USDT, or BTC. 25 to 50 credits per $1 by volume ($0.04 to $0.02/credit). Minimum 5."""
         body: dict = {
             "txHash": tx_hash,
             "chainId": chain_id,
@@ -680,7 +690,7 @@ class InsumerAPIWrapper(BaseModel):
         company_id: str,
         location: Optional[str] = None,
     ) -> dict:
-        """Create a new merchant. Discount codes draw on the credits of the API key that owns it. Max 10 per API key."""
+        """Create a new merchant. Discount codes draw on the credits of the API key that owns it. A limited number per API key; past it the API answers 429."""
         body: dict[str, Any] = {
             "companyName": company_name,
             "companyId": company_id,
@@ -746,7 +756,7 @@ class InsumerAPIWrapper(BaseModel):
         amount: Optional[float] = None,
         update_wallet: bool = False,
     ) -> dict:
-        """Add credits to the API key that owns a store with USDC, USDT, or BTC. Rate: 25 credits per $1. Min 5. Owner only."""
+        """Add credits to the API key that owns a store with USDC, USDT, or BTC. Rate: a flat 25 credits per $1. Min 5. Owner only."""
         body: dict = {
             "txHash": tx_hash,
             "chainId": chain_id,

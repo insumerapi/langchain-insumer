@@ -32,14 +32,14 @@ class InsumerCheckDiscountTool(BaseTool):
     """Calculate the discount a wallet qualifies for at a specific merchant.
 
     Checks on-chain balances server-side and returns the tier and discount
-    percentage per token -- never raw balance amounts.
+    percentage per token, never raw balance amounts.
     Free to call, no credits consumed.
     """
 
     name: str = "insumer_check_discount"
     description: str = (
         "Calculate what discount a wallet qualifies for at a specific merchant. "
-        "Returns tier and discount percentage per token -- never raw balance "
+        "Returns tier and discount percentage per token, never raw balance "
         "amounts. Free to call, no credits consumed."
     )
     args_schema: Type[CheckDiscountSchema] = CheckDiscountSchema

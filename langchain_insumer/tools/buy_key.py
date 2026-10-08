@@ -21,8 +21,9 @@ class BuyKeySchema(BaseModel):
             '43114 (Avalanche), "solana", "bitcoin", or "tron" (USDT-TRC20).'
         ),
     )
-    amount: float = Field(
-        description="Stablecoin amount sent (min 5). Not required for BTC — USD value derived from on-chain BTC amount at market rate.",
+    amount: Optional[float] = Field(
+        default=None,
+        description="Stablecoin amount sent (min 5). Not required for BTC: USD value derived from on-chain BTC amount at market rate.",
         ge=5,
     )
     app_name: str = Field(
@@ -44,7 +45,7 @@ class InsumerBuyKeyTool(BaseTool):
         "Buy a new API key with USDC, USDT, or BTC (no auth required). "
         "Agent-friendly: no email needed, the sender wallet becomes the "
         "key's identity. One key per wallet. Volume discounts: "
-        "$0.04-$0.02/call. Supports 7 EVM chains, Solana, and Bitcoin. "
+        "$0.04-$0.02/call. Supports 7 EVM chains, Solana, Bitcoin and Tron. "
         "Non-refundable."
     )
     args_schema: Type[BuyKeySchema] = BuyKeySchema
@@ -58,8 +59,8 @@ class InsumerBuyKeyTool(BaseTool):
         self,
         tx_hash: str,
         chain_id: Any,
-        amount: float,
         app_name: str,
+        amount: Optional[float] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         """Buy a new API key."""

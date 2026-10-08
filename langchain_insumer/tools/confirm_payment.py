@@ -19,9 +19,10 @@ class ConfirmPaymentSchema(BaseModel):
     tx_hash: str = Field(description="On-chain transaction hash or Solana signature.")
     chain_id: Any = Field(
         description=(
-            "Chain where USDC/USDT/USDT-TRC20 was sent: 1 (Ethereum), 8453 (Base), "
+            "Chain where the USDC was sent: 1 (Ethereum), 8453 (Base), "
             '137 (Polygon), 42161 (Arbitrum), 10 (Optimism), 56 (BNB), '
-            '43114 (Avalanche), "solana", or "tron".'
+            '43114 (Avalanche), or "solana". Bitcoin and Tron are not '
+            "accepted here."
         ),
     )
     amount: Any = Field(description="USDC amount sent.")
@@ -32,7 +33,8 @@ class InsumerConfirmPaymentTool(BaseTool):
 
     After generating a discount code with ``insumer_verify``, confirm the
     customer's USDC payment. The server verifies the on-chain transaction
-    receipt and marks the code as paid.
+    receipt and returns the confirmation (confirmed, amountVerified,
+    confirmedAt).
     """
 
     name: str = "insumer_confirm_payment"
