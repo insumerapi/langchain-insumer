@@ -167,7 +167,7 @@ class InsumerAPIWrapper(BaseModel):
 
         Five entries over two keys: the ECDSA P-256 key under the kids
         ``insumer-attest-v1``, ``insumer-attest-v2`` and ``insumer-trust-v2``,
-        followed by the ML-DSA-65 post-quantum companion key under two RFC 9964
+        followed by the ML-DSA-65 post-quantum key under two RFC 9964
         ``AKP`` entries, ``insumer-attest-pq1`` and ``insumer-trust-pq1``.
         No authentication required. Match the ``kid`` (and ``pqKid``) on a
         response to its entry, never by position, enabling automatic key
@@ -318,7 +318,7 @@ class InsumerAPIWrapper(BaseModel):
             API response with verification results, ECDSA signature (``sig``),
             and key ID (``kid``) identifying the signing key. Every response
             also carries an ML-DSA-65 post-quantum
-            companion signature (``pqSig``, ``pqKid``) over the same bytes the
+            signature (``pqSig``, ``pqKid``) over the same bytes the
             classical ``kid`` selects; additive, ``sig`` and ``kid`` are
             unchanged. Fetch the public keys via ``get_jwks()`` to verify
             signatures.
@@ -455,7 +455,7 @@ class InsumerAPIWrapper(BaseModel):
         Returns:
             API response with trust profile, ECDSA signature (``sig``),
             key ID (``kid``, ``insumer-trust-v2`` on current keys), and the
-            ML-DSA-65 post-quantum companion (``pqSig``, ``pqKid``
+            ML-DSA-65 post-quantum signature (``pqSig``, ``pqKid``
             ``insumer-trust-pq1``).
         """
         body: dict[str, Any] = {"wallet": wallet}

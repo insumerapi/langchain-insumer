@@ -21,7 +21,7 @@ class InsumerJwksTool(BaseTool):
 
     Five entries over two keys: the ECDSA P-256 key under three kids
     (insumer-attest-v1, insumer-attest-v2, insumer-trust-v2) followed by the
-    ML-DSA-65 post-quantum companion key under two RFC 9964 AKP entries
+    ML-DSA-65 post-quantum key under two RFC 9964 AKP entries
     (insumer-attest-pq1, insumer-trust-pq1). The kid and pqKid fields in
     attestation and trust responses identify which entries signed the
     response; match on them, never on position. No authentication required.
@@ -31,7 +31,7 @@ class InsumerJwksTool(BaseTool):
     description: str = (
         "Get the JWKS (JSON Web Key Set) containing InsumerAPI's public signing "
         "keys: the ECDSA P-256 key under three kids and the ML-DSA-65 "
-        "post-quantum companion key under two RFC 9964 AKP entries. Match the "
+        "post-quantum key under two RFC 9964 AKP entries. Match the "
         "kid and pqKid fields from attestation responses to the correct entry, "
         "never by position. Enables signature verification and automatic key "
         "rotation. Free, no credits consumed."

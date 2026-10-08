@@ -104,7 +104,7 @@ class InsumerAttestTool(BaseTool):
     Returns only true/false per condition and never exposes actual balances, code
     or delegation targets.
     The response includes an ECDSA P-256 signature (sig, kid) and an
-    ML-DSA-65 post-quantum companion (pqSig, pqKid).
+    ML-DSA-65 post-quantum signature (pqSig, pqKid).
     Costs 1 verification credit per call, or 2 credits with proof="merkle".
     For EAS attestations, use a compliance template (Coinbase Verifications,
     Gitcoin Passport) or raw schemaId. For Farcaster, use type "farcaster_id".

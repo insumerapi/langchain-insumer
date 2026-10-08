@@ -98,7 +98,7 @@ print(f"Key ID: {result['data']['kid']}")
     },
     "sig": "XUb5ZPUW...(base64 P1363 ECDSA P-256 signature)...",
     "kid": "insumer-attest-v2",
-    "pqSig": "...(base64 ML-DSA-65 post-quantum companion signature)...",
+    "pqSig": "...(base64 ML-DSA-65 post-quantum signature)...",
     "pqKid": "insumer-attest-pq1"
   },
   "meta": { "version": "1.0", "timestamp": "2026-02-28T12:34:57.000Z", "creditsRemaining": 99, "creditsCharged": 1 }
@@ -107,7 +107,7 @@ print(f"Key ID: {result['data']['kid']}")
 
 No balances. No amounts. Just a signed true/false per condition.
 
-Every attest and trust response also carries an ML-DSA-65 post-quantum companion signature (`pqSig`, `pqKid`; `pqJwt` beside `jwt`) over the same bytes the classical `kid` selects. It is additive: `sig` and `kid` are unchanged, and the companion key is published in the same JWKS under the RFC 9964 `AKP` kids `insumer-attest-pq1` and `insumer-trust-pq1`.
+Every attest and trust response is signed twice: ES256 and a post-quantum ML-DSA-65 signature (`pqSig`, `pqKid`; `pqJwt` beside `jwt`) over the same bytes the classical `kid` selects. It is additive: `sig` and `kid` are unchanged, and the post-quantum key is published in the same JWKS under the RFC 9964 `AKP` kids `insumer-attest-pq1` and `insumer-trust-pq1`.
 
 ### Wallet Auth (JWT)
 
@@ -229,14 +229,14 @@ const result = await verifyAttestation(attestationResponse, {
 });
 
 if (result.valid) {
-  // Signature verified, condition hashes match, fresh, not expired, companion not refuted
+  // Signature verified, condition hashes match, fresh, not expired, post-quantum signature not refuted
   console.log("Attestation verified");
 } else {
   console.log("Verification failed:", result.checks);
 }
 ```
 
-This reports five verdicts: the ECDSA P-256 signature, condition hash integrity, block freshness, attestation expiry, and the ML-DSA-65 post-quantum companion (`verified`, `refuted`, `absent`, or `unverifiable`; a refuted companion always fails, an absent one fails only under a cutoff you set). `insumer-verify` 1.8.1 and later report the companion verdict. The signing keys are fetched from the JWKS endpoint and matched by `kid` and `pqKid`, never by position, so key rotation is handled automatically.
+This reports five verdicts: the ECDSA P-256 signature, condition hash integrity, block freshness, attestation expiry, and the ML-DSA-65 post-quantum signature (`verified`, `refuted`, `absent`, or `unverifiable`; a refuted post-quantum signature always fails, an absent one fails only under a cutoff you set). `insumer-verify` 1.8.1 and later report the post-quantum verdict. The signing keys are fetched from the JWKS endpoint and matched by `kid` and `pqKid`, never by position, so key rotation is handled automatically.
 
 ## With a LangChain Agent
 
@@ -565,6 +565,11 @@ Returns an `insr_live_...` key with 10 free verifications plus 100 requests a da
 Or enter your email on [insumermodel.com](https://insumermodel.com/?utm_source=pypi-langchain-insumer). Already have a key? Manage it at [insumermodel.com/developers/account/](https://insumermodel.com/developers/account/?utm_source=pypi-langchain-insumer).
 
 **Tiers:** Free (10 free verifications plus 100 requests a day) | Pro $29/mo (10,000/day) | Enterprise $99/mo (100,000/day)
+
+## Other ways to reach the same API
+
+- **Hosted MCP server**: `https://api.insumermodel.com/mcp` (MCP streamable HTTP). Connect by URL from ChatGPT, claude.ai or any hosted agent, with no install and no key. It serves ten tools on a shared daily allowance: `insumer_attest`, `insumer_wallet_trust`, `insumer_batch_wallet_trust`, `insumer_compliance_templates`, `insumer_jwks`, `insumer_list_merchants`, `insumer_get_merchant`, `insumer_list_tokens`, `insumer_check_discount` and `insumer_validate_code` (no ACP/UCP discount issuance or merchant setup). In LangChain, the same endpoint can also be loaded as tools through [`langchain-mcp-adapters`](https://pypi.org/project/langchain-mcp-adapters/). For all 27 tools on your own key: `npx -y mcp-server-insumer`.
+- **x402 pay-per-call**: this package authenticates with an API key, but `POST /v1/attest`, `/v1/trust` and `/v1/trust/batch` also accept [x402](https://www.x402.org) with no key: call with no credential headers, get a 402 quote, pay in USDC on Base, Polygon, Arbitrum, Arc or Solana, and retry with the `PAYMENT-SIGNATURE` header ($0.05 per attest call, $0.15 per wallet for trust). The discount endpoints do not take x402.
 
 ## Links
 
