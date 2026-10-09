@@ -1,5 +1,7 @@
 # langchain-insumer
 
+[![PyPI](https://img.shields.io/pypi/v/langchain-insumer)](https://pypi.org/project/langchain-insumer/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/insumerapi/langchain-insumer/blob/main/LICENSE)
+
 LangChain tools for [InsumerAPI](https://insumermodel.com/developers/): wallet auth across 37 blockchains. Returns ECDSA-signed booleans without exposing wallet balances. Up to 10 conditions per request, each with its own chainId. Optional Merkle storage proofs for trustless verification.
 
 **In production:** [AsterPay](https://github.com/AsterPay/erc8183-kya-hook), a regulated payments stack, runs live ERC-8183 agentic-commerce trust checks on InsumerAPI. [Case study](https://insumermodel.com/blog/asterpay-kya-erc8183-attestation-integration.html).
