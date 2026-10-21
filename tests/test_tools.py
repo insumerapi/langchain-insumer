@@ -588,3 +588,142 @@ def test_signed_count_and_pq_label_need_the_signature_fields():
     text = summarize_batch_trust({"ok": True, "data": {"results": [{"trust": trust}, {"trust": trust, "sig": "s", "kid": "k", "pqKid": "p"}]}, "meta": {}})
     assert text.startswith("Batch trust profiles: 2 requested, 1 signed, 1 not signed.")
     assert "signed (k)" in text and "+ p" not in text
+
+
+class TestPurchases:
+    """Key and credit purchases: USDC only, amount required, senderSignature passed through."""
+
+    TX = "0x" + "ab" * 32
+    SIG = "0x" + "11" * 65
+
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_buy_key_sends_amount_and_sender_signature(self, mock_post, api, mock_response):
+        mock_post.return_value = mock_response
+        api.buy_key(tx_hash=self.TX, chain_id=8453, amount=5, app_name="agent", sender_signature=self.SIG)
+        args, kwargs = mock_post.call_args
+        assert args[0].endswith("/keys/buy")
+        assert kwargs["json"] == {
+            "txHash": self.TX,
+            "chainId": 8453,
+            "amount": 5,
+            "appName": "agent",
+            "senderSignature": self.SIG,
+        }
+        assert "X-API-Key" not in kwargs["headers"]
+
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_buy_key_without_signature_sends_no_field(self, mock_post, api, mock_response):
+        mock_post.return_value = mock_response
+        api.buy_key(tx_hash=self.TX, chain_id="solana", amount=10, app_name="agent")
+        assert "senderSignature" not in mock_post.call_args.kwargs["json"]
+
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_missing_signature_400_gives_the_text_to_sign(self, mock_post, api):
+        message = (
+            "senderSignature is required: sign this exact text with the wallet that sent the payment, "
+            "and send the signature as senderSignature.\n\napi.insumermodel.com\n"
+            "Confirm the wallet that sent this payment.\nPurpose: key purchase\n"
+            "Chain: eip155:8453\nTransaction: " + self.TX
+        )
+        mock_post.return_value = _error_response(
+            400, {"ok": False, "error": {"code": "invalid_request", "message": message}}
+        )
+        with pytest.raises(requests.HTTPError) as excinfo:
+            api.buy_key(tx_hash=self.TX, chain_id=8453, amount=5, app_name="agent")
+        assert "Purpose: key purchase" in str(excinfo.value)
+
+    @pytest.mark.parametrize("method,path,extra", [
+        ("buy_credits", "/credits/buy", {}),
+        ("buy_merchant_credits", "/merchants/m1/credits", {"merchant_id": "m1"}),
+    ])
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_credit_purchases_send_amount_update_wallet_and_signature(
+        self, mock_post, method, path, extra, api, mock_response
+    ):
+        mock_post.return_value = mock_response
+        getattr(api, method)(
+            tx_hash=self.TX, chain_id=137, amount=25, update_wallet=True, sender_signature=self.SIG, **extra
+        )
+        args, kwargs = mock_post.call_args
+        assert args[0].endswith(path)
+        assert kwargs["json"] == {
+            "txHash": self.TX,
+            "chainId": 137,
+            "amount": 25,
+            "updateWallet": True,
+            "senderSignature": self.SIG,
+        }
+
+    @pytest.mark.parametrize("method,extra", [
+        ("buy_credits", {}),
+        ("buy_merchant_credits", {"merchant_id": "m1"}),
+    ])
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_registered_wallet_credit_purchase_sends_no_signature(self, mock_post, method, extra, api, mock_response):
+        mock_post.return_value = mock_response
+        getattr(api, method)(tx_hash=self.TX, chain_id=1, amount=5, **extra)
+        body = mock_post.call_args.kwargs["json"]
+        assert "senderSignature" not in body and "updateWallet" not in body
+
+    @pytest.mark.parametrize("call", [
+        lambda api: api.buy_key(tx_hash="0x" + "ab" * 32, chain_id=8453, app_name="agent"),
+        lambda api: api.buy_credits(tx_hash="0x" + "ab" * 32, chain_id=8453),
+        lambda api: api.buy_merchant_credits(merchant_id="m1", tx_hash="0x" + "ab" * 32, chain_id=8453),
+    ])
+    def test_amount_is_required_on_the_wrapper(self, call, api):
+        with pytest.raises(TypeError):
+            call(api)
+
+    @pytest.mark.parametrize("tool_cls,args", [
+        ("InsumerBuyKeyTool", {"tx_hash": "0x" + "ab" * 32, "chain_id": 8453, "app_name": "agent"}),
+        ("InsumerBuyCreditsTool", {"tx_hash": "0x" + "ab" * 32, "chain_id": 8453}),
+        ("InsumerBuyMerchantCreditsTool", {"id": "m1", "tx_hash": "0x" + "ab" * 32, "chain_id": 8453}),
+    ])
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_tools_require_amount(self, mock_post, tool_cls, args, api):
+        import langchain_insumer
+        tool = getattr(langchain_insumer, tool_cls)(api_wrapper=api)
+        with pytest.raises(Exception):
+            tool.invoke(args)
+        mock_post.assert_not_called()
+
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_buy_key_tool_passes_sender_signature(self, mock_post, api, mock_response):
+        from langchain_insumer import InsumerBuyKeyTool
+        mock_post.return_value = mock_response
+        InsumerBuyKeyTool(api_wrapper=api).invoke(
+            {"tx_hash": self.TX, "chain_id": "solana", "amount": 5, "app_name": "agent", "sender_signature": "sig58"}
+        )
+        body = mock_post.call_args.kwargs["json"]
+        assert body["senderSignature"] == "sig58" and body["amount"] == 5
+
+    @patch("langchain_insumer.wrapper.requests.post")
+    def test_credit_tools_pass_sender_signature(self, mock_post, api, mock_response):
+        from langchain_insumer import InsumerBuyCreditsTool, InsumerBuyMerchantCreditsTool
+        mock_post.return_value = mock_response
+        InsumerBuyCreditsTool(api_wrapper=api).invoke(
+            {"tx_hash": self.TX, "chain_id": 10, "amount": 5, "update_wallet": True, "sender_signature": self.SIG}
+        )
+        assert mock_post.call_args.kwargs["json"]["senderSignature"] == self.SIG
+        InsumerBuyMerchantCreditsTool(api_wrapper=api).invoke(
+            {"id": "m1", "tx_hash": self.TX, "chain_id": 10, "amount": 5, "sender_signature": self.SIG}
+        )
+        assert mock_post.call_args.args[0].endswith("/merchants/m1/credits")
+        assert mock_post.call_args.kwargs["json"]["senderSignature"] == self.SIG
+
+    def test_purchase_tool_text_names_usdc_only(self):
+        from langchain_insumer.tools.buy_credits import BuyCreditsSchema, InsumerBuyCreditsTool
+        from langchain_insumer.tools.buy_key import BuyKeySchema, InsumerBuyKeyTool
+        from langchain_insumer.tools.buy_merchant_credits import (
+            BuyMerchantCreditsSchema,
+            InsumerBuyMerchantCreditsTool,
+        )
+        for schema, tool in [
+            (BuyKeySchema, InsumerBuyKeyTool),
+            (BuyCreditsSchema, InsumerBuyCreditsTool),
+            (BuyMerchantCreditsSchema, InsumerBuyMerchantCreditsTool),
+        ]:
+            text = json.dumps(schema.model_json_schema()) + tool.model_fields["description"].default
+            for word in ("USDT", "BTC", "Bitcoin", "bitcoin", "Tron", "tron"):
+                assert word not in text, (tool.__name__, word)
+            assert "sender_signature" in schema.model_fields

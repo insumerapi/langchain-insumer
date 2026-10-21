@@ -631,42 +631,75 @@ class InsumerAPIWrapper(BaseModel):
         self,
         tx_hash: str,
         chain_id: Any,
-        amount: Optional[float],
+        amount: float,
         app_name: str,
+        sender_signature: Optional[str] = None,
     ) -> dict:
-        """Buy a new API key with USDC, USDT, or BTC (no auth required). Wallet becomes the key identity.
+        """Buy a new API key with USDC (no auth required). Wallet becomes the key identity.
 
-        ``amount`` may be None for a Bitcoin purchase (the USD value is
-        derived from the on-chain BTC amount at market rate). The response
-        omits ``key`` when the paying EVM wallet receives the Insumer Access
-        pass (the default); that wallet then authenticates with
-        ``Authorization: Wallet``.
+        Purchases are paid in USDC only: ``chain_id`` is 1, 10, 56, 137,
+        8453, 42161 or 43114, or ``"solana"``. ``amount`` is the USDC amount
+        sent (min 5).
+
+        ``sender_signature`` is required: the wallet that sent the payment
+        signs this exact text (five lines joined by ``\\n``, no trailing
+        newline) and the signature is sent as ``senderSignature``::
+
+            api.insumermodel.com
+            Confirm the wallet that sent this payment.
+            Purpose: key purchase
+            Chain: eip155:<chainId>        (or: solana)
+            Transaction: <transaction id>
+
+        The transaction id is the EVM hash as 0x plus lowercase hex, or the
+        Solana signature as sent. EVM wallets sign with EIP-191 ``personal_sign`` (0x hex; smart
+        wallets are checked with ERC-1271); Solana wallets sign with ed25519
+        ``signMessage`` (base58 or base64). A call without it is refused
+        with a 400 whose message gives the exact text to sign, so a caller
+        can send the call once, sign the returned text and send it again. A
+        signature from any other wallet is refused with a 403.
+
+        The response carries ``usdcPaid``. It omits ``key`` when the paying
+        EVM wallet receives the Insumer Access pass (the default); that
+        wallet then authenticates with ``Authorization: Wallet``.
         """
         body: dict = {
             "txHash": tx_hash,
             "chainId": chain_id,
+            "amount": amount,
             "appName": app_name,
         }
-        if amount is not None:
-            body["amount"] = amount
+        if sender_signature is not None:
+            body["senderSignature"] = sender_signature
         return self._public_post("/keys/buy", body)
 
     def buy_credits(
         self,
         tx_hash: str,
         chain_id: Any,
-        amount: Optional[float] = None,
+        amount: float,
         update_wallet: bool = False,
+        sender_signature: Optional[str] = None,
     ) -> dict:
-        """Buy verification credits with USDC, USDT, or BTC. 25 to 50 credits per $1 by volume ($0.04 to $0.02/credit). Minimum 5."""
+        """Buy verification credits with USDC. 25 to 50 credits per $1 by volume ($0.04 to $0.02/credit). Minimum 5.
+
+        Purchases are paid in USDC only, on the chains :meth:`buy_key`
+        lists. ``sender_signature`` (sent as ``senderSignature``) is needed
+        when the key has no registered wallet yet, or when ``update_wallet``
+        moves the key to a different sender; it is the paying wallet's
+        signature over the text :meth:`buy_key` describes, with
+        ``Purpose: credit purchase``. A payment from the registered wallet
+        needs no signature.
+        """
         body: dict = {
             "txHash": tx_hash,
             "chainId": chain_id,
+            "amount": amount,
         }
-        if amount is not None:
-            body["amount"] = amount
         if update_wallet:
             body["updateWallet"] = True
+        if sender_signature is not None:
+            body["senderSignature"] = sender_signature
         return self._post("/credits/buy", body)
 
     def confirm_payment(
@@ -753,18 +786,25 @@ class InsumerAPIWrapper(BaseModel):
         merchant_id: str,
         tx_hash: str,
         chain_id: Any,
-        amount: Optional[float] = None,
+        amount: float,
         update_wallet: bool = False,
+        sender_signature: Optional[str] = None,
     ) -> dict:
-        """Add credits to the API key that owns a store with USDC, USDT, or BTC. Rate: a flat 25 credits per $1. Min 5. Owner only."""
+        """Add credits to the API key that owns a store with USDC. Rate: a flat 25 credits per $1. Min 5. Owner only.
+
+        Purchases are paid in USDC only, on the chains :meth:`buy_key`
+        lists. ``sender_signature`` (sent as ``senderSignature``) follows
+        the rule :meth:`buy_credits` describes.
+        """
         body: dict = {
             "txHash": tx_hash,
             "chainId": chain_id,
+            "amount": amount,
         }
-        if amount is not None:
-            body["amount"] = amount
         if update_wallet:
             body["updateWallet"] = True
+        if sender_signature is not None:
+            body["senderSignature"] = sender_signature
         return self._post(f"/merchants/{merchant_id}/credits", body)
 
     def acp_discount(

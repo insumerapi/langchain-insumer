@@ -322,10 +322,12 @@ print(attest.run({
 
 | Tool | Description | Credits |
 |------|-------------|---------|
-| `InsumerBuyKeyTool` | Buy a new API key with USDC, USDT, or BTC (no auth required). Wallet becomes identity. | -- |
+| `InsumerBuyKeyTool` | Buy a new API key with USDC (no auth required). Wallet becomes identity. | -- |
 | `InsumerCreditsTool` | Check API key credit balance and tier. | Free |
-| `InsumerBuyCreditsTool` | Buy API key credits with USDC, USDT, or BTC (25 to 50 credits/$1 by volume). | -- |
-| `InsumerBuyMerchantCreditsTool` | Add credits to the store owner's API key with USDC, USDT, or BTC (flat 25 credits/$1). | -- |
+| `InsumerBuyCreditsTool` | Buy API key credits with USDC (25 to 50 credits/$1 by volume). | -- |
+| `InsumerBuyMerchantCreditsTool` | Add credits to the store owner's API key with USDC (flat 25 credits/$1). | -- |
+
+Key and credit purchases are paid in USDC only, on Ethereum (1), Optimism (10), BNB Chain (56), Polygon (137), Base (8453), Arbitrum (42161), Avalanche (43114) or Solana (`"solana"`), and `amount` (the USDC sent, minimum 5) is required. The wallet that sent the payment signs the text the API names for that payment and the tools send it as `senderSignature` (`sender_signature` argument): always for a key purchase, and for credits when the key has no registered wallet yet or `update_wallet` moves it to a new sender. A call without the signature returns a 400 whose message gives the exact text to sign. EVM wallets sign with EIP-191 `personal_sign`; Solana wallets with `signMessage`. Receiving addresses are on the [pricing page](https://insumermodel.com/pricing/).
 
 ### Merchant Onboarding
 
